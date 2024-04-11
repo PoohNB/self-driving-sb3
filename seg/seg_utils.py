@@ -44,7 +44,7 @@ class HF_segmodel():
 
             upsampled_logits = nn.functional.interpolate(
                 logits,
-                size=images.shape[::-1], # (height, width)
+                size=images[0].shape[:-1], # (height, width)
                 mode='bilinear',
                 align_corners=False
             )
@@ -89,7 +89,7 @@ class HF_segmodel():
                 color_seg[segs[i] == label, :] = color
 
             # Show image + mask
-            img = color_seg * 0.5
+            img = color_seg 
             imgs.append(img.astype(np.uint8))
 
         return imgs
