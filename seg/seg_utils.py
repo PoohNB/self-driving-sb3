@@ -1,5 +1,3 @@
-
-
 # Load model directly
 from transformers import AutoImageProcessor, SegformerForSemanticSegmentation
 import numpy as np
@@ -27,64 +25,74 @@ class HF_segmodel():
 
 
 
-    def predict(self,image,give_overlay = False):
+    def predict(self,images,upsampling = False):
 
         """
+        inputs: list of images
         return predict output and overlayed image
         """
 
-        if not isinstance(image,Image.Image):
-            image = Image.fromarray(image)
-
         with torch.no_grad():
             if self.custom_processor == None:
-                inputs = self.processor(image,return_tensors="pt")['pixel_values'].to(self.device)
+                inputs = self.processor(images,return_tensors="pt")['pixel_values'].to(self.device)
             else:
-                inputs = self.processor(image).unsqueeze(0).to(self.device)
+                inputs = self.processor(images).unsqueeze(0).to(self.device)
 
             logits = self.model(pixel_values = inputs).logits
 
-        upsampled_logits = nn.functional.interpolate(
-            logits,
-            size=image.size[::-1], # (height, width)
-            mode='bilinear',
-            align_corners=False
-        )
+        if upsampling:
 
-        pred_seg = upsampled_logits.argmax(dim=1)[0].cpu()
+            upsampled_logits = nn.functional.interpolate(
+                logits,
+                size=images.shape[::-1], # (height, width)
+                mode='bilinear',
+                align_corners=False
+            )
 
-        if give_overlay:
-            
-            overlayed = self.get_seg_overlay(image,pred_seg)
+            pred_segs = upsampled_logits.argmax(dim=1).cpu()
 
+            return pred_segs,upsampled_logits
+        
         else:
-            overlayed = None
 
-        return pred_seg, overlayed   
+            pred_segs = logits.argmax(dim=1).cpu()
+
+            return pred_segs,logits
          
-    def get_seg_overlay(self,image, seg):
-        color_seg = np.zeros((seg.shape[0], seg.shape[1], 3), dtype=np.uint8) # height, width, 3
-        palette = np.array(self.sidewalk_palette())
-        for label, color in enumerate(palette):
-            color_seg[seg == label, :] = color
+    def get_seg_overlay(self,images, segs):
 
-        # Show image + mask
-        img = np.array(image) * 0.5 + color_seg * 0.5
-        img = img.astype(np.uint8)
+        if len(images) != len(segs):
+            raise Exception("number of images and seg result not equal")
 
-        return img
+        if images[0].shape != segs[0].shape:
+            raise Exception("shape mismatch mack sure predict() have upsampling = True")
+
+        imgs=[]
+        for i in range(len(images)):
+            color_seg = np.zeros((segs[i].shape[0], segs[i].shape[1], 3), dtype=np.uint8) # height, width, 3
+            palette = np.array(self.sidewalk_palette())
+            for label, color in enumerate(palette):
+                color_seg[segs[i] == label, :] = color
+
+            # Show image + mask
+            img = np.array(images[i]) * 0.5 + color_seg * 0.5
+            imgs.append(img.astype(np.uint8))
+
+        return imgs
     
-    def get_seg_image(self, seg):
-        color_seg = np.zeros((seg.shape[0], seg.shape[1], 3), dtype=np.uint8) # height, width, 3
-        palette = np.array(self.sidewalk_palette())
-        for label, color in enumerate(palette):
-            color_seg[seg == label, :] = color
+    def get_seg_image(self, segs):
+        imgs=[]
+        for i in range(len(segs)):
+            color_seg = np.zeros((segs[i].shape[0], segs[i].shape[1], 3), dtype=np.uint8) # height, width, 3
+            palette = np.array(self.sidewalk_palette())
+            for label, color in enumerate(palette):
+                color_seg[segs[i] == label, :] = color
 
-        # Show image + mask
-        img = color_seg
-        img = img.astype(np.uint8)
+            # Show image + mask
+            img = color_seg * 0.5
+            imgs.append(img.astype(np.uint8))
 
-        return img
+        return imgs
 
     def sidewalk_palette(self):
         """Sidewalk palette that maps each class to RGB values."""

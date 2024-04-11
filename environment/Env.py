@@ -111,6 +111,7 @@ class CarlaImageEnv(gym.Env):
         self.seg_state_buffer = deque(maxlen=IN_CHANNLES)
         self.action_state_buffer = deque(maxlen=IN_CHANNLES)
         self.observer = observer
+        self.discrete_actions = discrete_actions
 
         # set gym action space ===
         if discrete_actions == None :
@@ -233,8 +234,9 @@ class CarlaImageEnv(gym.Env):
         curr_pos = self.car.get_transform()
         self.prev_dist = curr_pos.location.distance(self.end_points[self.sp][2])
         
-        # initial observation ===
         images = self.get_images()
+
+        obs = self.observer.reset(self.get_images())
 
         # fill image buffer with initial images
         for cn in self.seg_state_buffer.keys():
@@ -246,8 +248,6 @@ class CarlaImageEnv(gym.Env):
             self.action_state_buffer.extend([[0,0]]*N_LOOK_BACK)
         else:
             self.action_state_buffer.extend([0]*N_LOOK_BACK)
-        
-        obs = self.observer.reset(self.get_images())
 
         return obs
     
@@ -271,15 +271,6 @@ class CarlaImageEnv(gym.Env):
 
         return images
     
-    def get_latent_state(self):
-
-        for k,v in self.seg_state_buffer.items():
-
-
-            self.vae_model(v)
-
-
-
     def get_state(self):
 
         """
@@ -300,10 +291,10 @@ class CarlaImageEnv(gym.Env):
 
         # action = copy.deepcopy(action)
 
-        if self.action_space_type == "continuous":
+        if self.discrete_actions == None:
             steer, throttle = self.action_wraper(action=action,curent_steer = self.curr_steer_position)
         else:
-            steer, throttle = discrete_actions[action]
+            steer, throttle = self.discrete_actions[action]
 
         control = carla.VehicleControl(throttle=throttle, steer=steer, brake=0,
                                        hand_brake=False, reverse=False, manual_gear_shift=False, gear=0)
