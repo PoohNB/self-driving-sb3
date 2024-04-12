@@ -66,14 +66,12 @@ class CarlaImageEnv(gym.Env):
                  cam_config_list=[],             
                  vehicle='evt_echo_4s',
                  car_spawn = (),
-                 action_space_type = 'continuous',
-                 seg_cam = False,
                  discrete_actions = None,
                  observer = None,
-                 delay = 0,
+                 delta_frame = 0.2,
                  action_wraper = dummy(),
                  reward_fn = None,
-                 inspect_config = None,
+                 inspect_config = inspector_cam,
                  seed=2024):
         
         
@@ -83,7 +81,10 @@ class CarlaImageEnv(gym.Env):
         if not len(car_spawn):
             raise Exception("no car spawn point")
         
-        if reward_fn==None:
+        if observer is None:
+            raise Exception("no observer object apply")
+        
+        if reward_fn is None:
             raise Exception("no reward func apply")
         
         if not isinstance(discrete_actions,dict):
@@ -96,52 +97,63 @@ class CarlaImageEnv(gym.Env):
         else:
             print("environment are in render mode")
 
-        # basic argument === 
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        print(device)
-        #make our work comparable 
+        # make our work comparable 
         torch.manual_seed(seed)
         torch.backends.cudnn.deterministic = True
         random.seed(seed)
 
-        self.action_space_type = action_space_type
+        # check if gpu available
+        if torch.cuda.is_available():
+            device = torch.device("cuda")  # Select the default CUDA device
+            properties = torch.cuda.get_device_properties(device)
+            print("training on ", properties.name)
+        else:
+            device = torch.device("cpu")
+            print("using cpu")
+
+        # param ======================================================================================
+
+        self.observer = observer
         self.action_wraper = action_wraper
         self.reward_fn = reward_fn
-        self.delay = delay
-        self.seg_state_buffer = deque(maxlen=IN_CHANNLES)
-        self.action_state_buffer = deque(maxlen=IN_CHANNLES)
-        self.observer = observer
         self.discrete_actions = discrete_actions
+        self.delta_frame = delta_frame
 
-        # set gym action space ===
+        # set gym space ==============================================================================
+
         if discrete_actions == None :
             print("using continuous space steer = [-1,1] , throttle = [0,1]")
             self.action_space = spaces.Box(np.array([-1, 0]), np.array([1, 1]), dtype=np.float32) 
-
+            
         else:
             print("using discret action")
             self.action_space = spaces.Discrete(len(discrete_actions))
             # self.observation_space['action'] = spaces.MultiDiscrete()
 
-        if observation_space == None:
-            print("using image pixel as observation(default)")
-            self.observation_space = spaces.Box(low=0, high=255,shape=(720,1280,3), dtype=np.uint8)
-        else:
-            self.observation_space = self.observer.observation_space
+        self.observation_space = self.observer.gym_obs()
+            
+        # setting the carla ============================================================================
 
-        # connect to carla ===
         self.client = carla.Client(host, port)
         self.client.set_timeout(120)
-        self.world = self.client.get_world()   
-        self.set_world() 
-        ## Destroy all actors
-        self.world.tick()
-        actors = self.world.get_actors()
-        for actor in actors:
-            actor.destroy()  
+        self.world = self.client.get_world()  
 
-        # weather ==
-        self.world.set_weather(carla.WeatherParameters.ClearNoon)
+        settings = self.world.get_settings()
+        settings.fixed_delta_seconds = self.delta_frame
+        settings.synchronous_mode = True
+        settings.max_substeps = 16
+        settings.max_substep_delta_time = 0.0125
+        self.world.apply_settings(settings)
+        self.client.reload_world(False)
+
+        # set weather 
+        # self.world.set_weather(carla.WeatherParameters.ClearNoon)
+
+        # # Destroy all actors if there any 
+        # self.world.tick()
+        # actors = self.world.get_actors()
+        # for actor in actors:
+        #     actor.destroy()  
 
         # spawn car ===
         self.blueprints = self.world.get_blueprint_library()
@@ -195,9 +207,6 @@ class CarlaImageEnv(gym.Env):
             # self.hud = HUD(1120, 560)
             # self.hud.set_vehicle(self.car)
             # self.world.on_tick(self.hud.on_world_tick)
-
-        self.reset()
-
                                                                                                                                                                
     def setting_camera(self,cam_config):
             
@@ -211,11 +220,12 @@ class CarlaImageEnv(gym.Env):
     def reset(self):
 
         # initial basic param ===
-
         self.curr_steer_position = 0
         self.count_in_obs = 0 # Step inside obstacle range
-        self.collision = False # 
+        self.collision = False
 
+
+        # 
         self.set_world()
 
         # telepot the car
@@ -233,21 +243,9 @@ class CarlaImageEnv(gym.Env):
         # Set previous position for checking reverse===
         curr_pos = self.car.get_transform()
         self.prev_dist = curr_pos.location.distance(self.end_points[self.sp][2])
-        
-        images = self.get_images()
 
+        # get the initial observation
         obs = self.observer.reset(self.get_images())
-
-        # fill image buffer with initial images
-        for cn in self.seg_state_buffer.keys():
-                
-            self.seg_state_buffer[cn].extend([images[cn]]*IN_CHANNLES)
-        
-        # fill stay still action
-        if self.action_space_type == "continuous":
-            self.action_state_buffer.extend([[0,0]]*N_LOOK_BACK)
-        else:
-            self.action_state_buffer.extend([0]*N_LOOK_BACK)
 
         return obs
     
@@ -258,16 +256,16 @@ class CarlaImageEnv(gym.Env):
     def get_images(self):
         
         """
-        return : {'cam':image}
+        return : list of images
         """
 
-        images ={}
+        images =[]
         for cam_name in self.cam_tmp.keys():
             while self.cam_tmp[cam_name] is None:
                 pass
             image = self.cam_tmp[cam_name].copy()
             self.cam_tmp[cam_name] = None
-            images[cam_name] = image
+            images.append(image)
 
         return images
     
@@ -289,6 +287,10 @@ class CarlaImageEnv(gym.Env):
 
     def step(self, action):
 
+        # ackermanncontrol ===
+        # control = carla.VehicleAckermannControl(steer=steer, steer_speed=0.3 ,speed=throttle, acceleration=0.3, jerk=0.1)
+        # self.car.apply_ackermann_control(control)
+        # set obstable movement===
         # action = copy.deepcopy(action)
 
         if self.discrete_actions == None:
@@ -300,7 +302,6 @@ class CarlaImageEnv(gym.Env):
                                        hand_brake=False, reverse=False, manual_gear_shift=False, gear=0)
         
         self.car.apply_control(control)
-
         # ackermanncontrol ===
         # control = carla.VehicleAckermannControl(steer=steer, steer_speed=0.3 ,speed=throttle, acceleration=0.3, jerk=0.1)
         # self.car.apply_ackermann_control(control)
@@ -310,23 +311,20 @@ class CarlaImageEnv(gym.Env):
         self.world.tick()
 
         # get image from camera
-        image = self.get_images()
+        images = self.get_images()
+        obs = self.observer.step(imgs = images,act=action)
 
         # get reward
-        reward = self.reward_fn()
+        reward = self.reward_fn(self.car)
 
+        # get done
+        done = self.collision 
 
-        # i don't know if this ok
-
+        # get info
+        info = {}
         
-        # if not dont_record:
-        #     return reward, done, end, dont_record
-        # else:
-        #     return 0, True, False, dont_record
-        
-        return reward, done, end, dont_record
-        
-
+        return  obs,reward,done,info
+     
     
     def process_seg(self, data,cam_name):
         img = np.array(data.raw_data)
@@ -352,7 +350,7 @@ class CarlaImageEnv(gym.Env):
         self.cam_tmp[cam_name] = img[:, :, 0:3].astype(np.uint8)
 
     def collision_callback(self, event):
-        if event.other_actor.semantic_tags[0] not in self.check_seman_tags:
+        if event.other_actor.semantic_tags[0] not in [1, 24]:
             self.collision = True
 
     def set_world(self):

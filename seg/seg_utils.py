@@ -64,8 +64,8 @@ class HF_segmodel():
         if len(images) != len(segs):
             raise Exception("number of images and seg result not equal")
 
-        if images[0].shape != segs[0].shape:
-            raise Exception("shape mismatch mack sure predict() have upsampling = True")
+        if images[0].shape[:-1] != segs[0].shape:
+            raise Exception("shape mismatch, make sure predict() have upsampling = True")
 
         imgs=[]
         for i in range(len(images)):
