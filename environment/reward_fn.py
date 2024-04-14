@@ -3,6 +3,14 @@ import numpy as np
 
 class reward_from_map():
 
+    """
+    factor
+        1. distance change x position on the path
+        2. collision
+        3. steer angle changing(jerk) (lower than 1)
+    
+    """
+
     def __init__(self,route_path):
 
         self.route = cv2.imread(route_path)

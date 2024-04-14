@@ -1,6 +1,6 @@
 from environment.tools.UTILS import locate_obstacle, create_point
-from config.env import *
-from config.camera import front_cam,left_cam,right_cam,inspector_cam
+from config.env import env_config
+from config.camera import front_cam,spectator_cam
 from config.position import car_spawn
 from utils.tools import carla_point
 from environment.action_wraper import five_action,dummy
@@ -17,61 +17,38 @@ from gym import spaces
 import random
 import pygame
 import torch
-from environment.tools.hud import HUD
+# from environment.tools.hud import HUD
 import warnings
+import time
+
 
 ait_football_cw = reward_from_map("")
-
-# discrete_actions={1:[-1,0.5],2:[-0.12,0.6], 3:[0,0.8], 4:[0.12,0.6], 5:[1,0.5],0:[0,0]}
-observation_space = spaces.Dict({
-            'seg': spaces.Box(low=0, high=3, shape=(SEG_HIGHT,SEG_WIDTH,IN_CHANNLES), dtype=np.uint8)
-        })
-
 
 class CarlaImageEnv(gym.Env):
 
     """
     open-ai environment for work with carla simulation server
     the function include 
+    - send list of image (np array) from camera to observer return the state from observer
+    - send the vehicle to reward_fn return the reward from reward_fn
+    - return done if vehicle on destination or collis or out from road or go wrong direction
+    - return info ??
     - send the command for control the car
-    - send the observation space,reward,done,info back
-    
-    skeleton
-    + init
-        - connect with simulation 
-        - initialize actor and sensor
-        - define action space
+    - construct the image to render in pygame
 
-    + reset
-        - reset the simulation
-        - send the observation
-    + step
-        - send command to simulation 
-        -
-
-    + close
-        - close pygame
-
-    + render
-        - show image on pygame window 
-         * controlable view
-
-    - send the image as select (semantic or rgb)
     """
 
 
     def __init__(self,
-                 host='localhost',
-                 port=2000,
-                 cam_config_list=[],             
-                 vehicle='evt_echo_4s',
                  car_spawn = (),
                  discrete_actions = None,
                  observer = None,
                  delta_frame = 0.2,
                  action_wraper = dummy(),
-                 reward_fn = None,
-                 inspect_config = inspector_cam,
+                 reward_fn = None,    
+                 env_config =env_config,
+                 cam_config_list=[front_cam], 
+                 activate_render = False,
                  seed=2024):
         
         
@@ -90,13 +67,6 @@ class CarlaImageEnv(gym.Env):
         if not isinstance(discrete_actions,dict):
             raise Exception("discrete action have to be dict type")
         
-        if inspect_config == None:
-            print("the environment are currently not in render mode")
-        elif not isinstance(inspect_config,dict):
-            raise Exception("inspector is camera config for render pygame, it have to be dict")
-        else:
-            print("environment are in render mode")
-
         # make our work comparable 
         torch.manual_seed(seed)
         torch.backends.cudnn.deterministic = True
@@ -118,6 +88,14 @@ class CarlaImageEnv(gym.Env):
         self.reward_fn = reward_fn
         self.discrete_actions = discrete_actions
         self.delta_frame = delta_frame
+        self.activate_render = activate_render
+        host = env_config.host
+        port = env_config.port
+        vehicle = env_config.vehicle
+        self.max_step = env_config.max_step
+        self.change_ep = env_config.change_point_ep
+        self.current_point = 0
+        self.ep = 0
 
         # set gym space ==============================================================================
 
@@ -159,8 +137,8 @@ class CarlaImageEnv(gym.Env):
         self.blueprints = self.world.get_blueprint_library()
         self.bp_car = self.blueprints.filter(vehicle)[0]
         # list of spawn point ===
-        self.carSPs = [carla_point(p) for p in car_spawn]        
-        self.car = self.world.spawn_actor(self.bp_car, self.carSPs[0])
+        self.car_spawnponts = [carla_point(p) for p in car_spawn]        
+        self.car = self.world.spawn_actor(self.bp_car, self.car_spawnponts[0])
 
         # attach cam to car ===
         self.cams = []
@@ -186,27 +164,26 @@ class CarlaImageEnv(gym.Env):
         self.colli_sensor = self.world.spawn_actor(self.bp_colli, carla.Transform(), attach_to=self.car)
         self.colli_sensor.listen(self.collision_callback)
 
-        if not inspect_config == None:
+        if self.activate_render:
             # cam for save video and visualize ===
             Attachment = carla.AttachmentType
-            self.inspect_rig = [
+            self.spectator_rig = [
                 (carla.Transform(carla.Location(x=-2.5, z=0.0), carla.Rotation(pitch=-8.0)), Attachment.SpringArmGhost),
                 (carla.Transform(carla.Location(x=1.6, z=1.7)), Attachment.Rigid),
                 (carla.Transform(carla.Location(x=2.5, y=0.5, z=0.0), carla.Rotation(pitch=-8.0)), Attachment.SpringArmGhost),
                 (carla.Transform(carla.Location(x=-4.0, z=2.0), carla.Rotation(pitch=6.0)), Attachment.SpringArmGhost),
                 (carla.Transform(carla.Location(x=0, y=-2.5, z=-0.0), carla.Rotation(yaw=90.0)), Attachment.Rigid)]
-            insCam = self.setting_camera(inspect_config)
-            self.insCam = self.world.spawn_actor(insCam, self.inspect_rig[0][0], attach_to=self.car,attachment_type= self.inspect_rig[0][1])
-            self.insCam.listen(lambda data: self.process_rgb(data))
+            spec_cam = self.setting_camera('sensor.camera.rgb')
+            self.spec_cam = self.world.spawn_actor(spec_cam, self.spectator_rig[0][0], attach_to=self.car,attachment_type= self.spectator_rig[0][1])
+            self.spec_cam.listen(lambda data: self.process_rgb(data))
 
             # pygame display ==
             pygame.init()
             pygame.font.init()
-            self.display = pygame.display.set_mode((inspect_config.attribute.image_size_x, inspect_config.attribute.image_size_y), pygame.HWSURFACE | pygame.DOUBLEBUF)
+            self.display = pygame.display.set_mode((640, 360), pygame.HWSURFACE | pygame.DOUBLEBUF)
             self.clock = pygame.time.Clock()
             # self.hud = HUD(1120, 560)
             # self.hud.set_vehicle(self.car)
-            # self.world.on_tick(self.hud.on_world_tick)
                                                                                                                                                                
     def setting_camera(self,cam_config):
             
@@ -219,19 +196,16 @@ class CarlaImageEnv(gym.Env):
 
     def reset(self):
 
-        # initial basic param ===
+        # initial basic param ===============================================================
         self.curr_steer_position = 0
         self.count_in_obs = 0 # Step inside obstacle range
         self.collision = False
+        self.ep+=1
+        self.step_count = 0
+        self.select_point()
+        self.reset_car()
 
-
-        # 
-        self.set_world()
-
-        # telepot the car
-        self.car.set_transform(self.carSPs[0])
-
-        # set tmp of every camera to None
+        # set tmp of every camera to None=====================================================
         self.cam_tmp = {s['name']:None for s in self.cam_config_list}
 
 
@@ -245,13 +219,30 @@ class CarlaImageEnv(gym.Env):
         self.prev_dist = curr_pos.location.distance(self.end_points[self.sp][2])
 
         # get the initial observation
-        obs = self.observer.reset(self.get_images())
+        images = self.get_images()
+        obs = self.observer.reset(images)
 
         return obs
     
-    def batch_image(self):
+    def select_point(self):
+        """
+        if it reach another points or reach change points ep it will change start point to the next point
+        """
+        if self.ep % self.change_ep ==0:
+            self.current_point=self.current_point+1
 
-        return
+        self.st = self.current_point%len(self.car_spawnponts)
+        self.des = (self.current_point+1)%len(self.car_spawnponts)
+
+
+    def reset_car(self):
+        """
+        teleport the car 
+        """
+        self.car.set_simulate_physics(False)
+        self.car.set_transform(self.st)
+        time.sleep(0.2)
+        self.car.set_simulate_physics(True)
 
     def get_images(self):
         
@@ -269,21 +260,6 @@ class CarlaImageEnv(gym.Env):
 
         return images
     
-    def get_state(self):
-
-        """
-        pack the image and action history together
-
-        return : {'seg':{'cam':[image],} ,'action':[]}
-        """
-
-        state = {}
-        seg_state_np = {k:np.array(v, dtype=np.uint8) for k,v in self.seg_state_buffer.items()}
-        state['seg'] = seg_state_np
-        state['action'] = np.array(self.action_state_buffer, dtype=np.float32)
-
-        return state
-    
 
     def step(self, action):
 
@@ -292,6 +268,8 @@ class CarlaImageEnv(gym.Env):
         # self.car.apply_ackermann_control(control)
         # set obstable movement===
         # action = copy.deepcopy(action)
+
+        
 
         if self.discrete_actions == None:
             steer, throttle = self.action_wraper(action=action,curent_steer = self.curr_steer_position)
@@ -302,11 +280,6 @@ class CarlaImageEnv(gym.Env):
                                        hand_brake=False, reverse=False, manual_gear_shift=False, gear=0)
         
         self.car.apply_control(control)
-        # ackermanncontrol ===
-        # control = carla.VehicleAckermannControl(steer=steer, steer_speed=0.3 ,speed=throttle, acceleration=0.3, jerk=0.1)
-        # self.car.apply_ackermann_control(control)
-        
-        # set obstable movement===
 
         self.world.tick()
 
@@ -317,8 +290,9 @@ class CarlaImageEnv(gym.Env):
         # get reward
         reward = self.reward_fn(self.car)
 
-        # get done
-        done = self.collision 
+        # basic termination -> colision or reach max step or out of the rount more than n step 
+        self.step_count+=1
+        done = self.collision or self.step_count > self.max_step
 
         # get info
         info = {}
@@ -328,9 +302,9 @@ class CarlaImageEnv(gym.Env):
     
     def process_seg(self, data,cam_name):
         img = np.array(data.raw_data)
-        img = img.reshape((self.camera_dict[cam_name]['image_size_y'], self.camera_dict[cam_name]['image_size_x'], 4))
+        img = img.reshape((self.camera_dict[cam_name]['attribute']['image_size_y'], self.camera_dict[cam_name]['attribute']['image_size_x'], 4))
         img = img[:, :, 2]
-        seg_tmp = np.zeros([self.camera_dict[cam_name]['image_size_y'],self.camera_dict[cam_name]['image_size_x']], dtype=np.uint8)
+        seg_tmp = np.zeros([self.camera_dict[cam_name]['attribute']['image_size_y'],self.camera_dict[cam_name]['attribute']['image_size_x']], dtype=np.uint8)
 
         seg_tmp[img==1] = 1 # Road
         seg_tmp[img==24] = 2 # RoadLines
@@ -342,11 +316,11 @@ class CarlaImageEnv(gym.Env):
         seg_tmp[img==18] = 3 # Motorcycle
         seg_tmp[img==19] = 3 # Bicycle
 
-        self.cam_tmp[cam_name] = cv2.resize(seg_tmp, (self.camera_dict[cam_name]['image_size_y'], self.camera_dict[cam_name]['image_size_y']), interpolation=cv2.INTER_NEAREST)
+        self.cam_tmp[cam_name] = cv2.resize(seg_tmp, (self.camera_dict[cam_name]['attribute']['image_size_y'], self.camera_dict[cam_name]['attribute']['image_size_y']), interpolation=cv2.INTER_NEAREST)
 
     def process_rgb(self, data,cam_name):
         img = np.array(data.raw_data)
-        img = img.reshape((self.camera_dict[cam_name]['image_size_y'], self.camera_dict[cam_name]['image_size_x'], 4))
+        img = img.reshape((self.camera_dict[cam_name]['attribute']['image_size_y'], self.camera_dict[cam_name]['attribute']['image_size_x'], 4))
         self.cam_tmp[cam_name] = img[:, :, 0:3].astype(np.uint8)
 
     def collision_callback(self, event):
@@ -395,4 +369,11 @@ class CarlaImageEnv(gym.Env):
         settings.max_culling_distance = 0
         settings.deterministic_ragdolls = True
         self.world.apply_settings(settings)
+
+    def help(self):
+        print("""
+
+            in order to render you need to give the spactator config 
+
+            """)
 

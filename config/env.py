@@ -1,10 +1,12 @@
-env_config = dict(CARLA_SERVER_IP = 'localhost',
-                  PORT = 2000,
-                  VEHICLE = 'evt_echo_4s',
-                  N_CHECK_REVERSE = 32,
-                  MAX_PLAY_STEP = 400,
-                  MAX_THROTTLE = 0.406,
-                  STEERING_SPEED = 0.2)
+env_config = dict(host = 'localhost',
+                  port = 2000,
+                  verhicle = 'evt_echo_4s',
+                  max_step = 400,
+                  max_throttle = 0.4,
+                  min_throttle = 0.2,
+                  steer_speed = 0.2,
+                  check_reverse = 32,
+                  change_point_ep=100)
 
 
 
