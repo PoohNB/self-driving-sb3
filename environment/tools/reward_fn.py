@@ -1,6 +1,18 @@
 import cv2
 import numpy as np
 
+class reward_dummy():
+
+    def __init__(self):
+
+        pass
+
+    def reward(self,car):
+
+        return 0
+
+
+
 class reward_from_map():
 
     """
@@ -52,7 +64,7 @@ class reward_from_map():
         return rew
     
     
-
+"""
 
         # reward mask
         self.reward_mask = {}
@@ -181,3 +193,4 @@ class reward_from_map():
 
             else:
                 break
+"""

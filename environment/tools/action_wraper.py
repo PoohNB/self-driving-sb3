@@ -1,9 +1,9 @@
 
-def dummy(**arg):
+def action_dummy(**arg):
 
     action = arg["action"]
 
-    return action
+    return float(action[0]),float(action[1])
 
 
 

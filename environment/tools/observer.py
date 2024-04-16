@@ -3,6 +3,37 @@ from gym import spaces
 import numpy as np
 import torch
 
+class dummy_observer():
+    """
+    class for test only can't work with sb3
+
+    """
+
+    def __init__(self):
+        
+        pass
+
+    def gym_obs(self):
+
+        observation_space = spaces.Box(low=np.finfo(np.float32).min,
+                                                high=np.finfo(np.float32).max,
+                                                shape=(1, 5),
+                                                dtype=np.float32)
+        
+        return observation_space
+    
+    def get_state(self):
+        return 
+    
+    def reset(self,imgs):
+
+        
+        return imgs
+        
+    def step(self,**arg):
+
+
+        return arg["imgs"]
 
 
 class seg_vae_act():
