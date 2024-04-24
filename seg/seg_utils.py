@@ -1,14 +1,15 @@
 # Load model directly
-from transformers import AutoImageProcessor, SegformerForSemanticSegmentation
+from transformers import AutoImageProcessor,SegformerImageProcessor, SegformerForSemanticSegmentation,Mask2FormerForUniversalSegmentation
 import numpy as np
 from PIL import Image
 import torch
 from torch import nn
+import cv2
 
 
 
 
-class HF_segmodel():
+class HF_segFormermodel():
    
     def __init__(self,model_repo,custom_processor=None):
 
@@ -18,10 +19,11 @@ class HF_segmodel():
         self.custom_processor = custom_processor
 
         if self.custom_processor == None:
-            self.processor = AutoImageProcessor.from_pretrained(model_repo)
+            self.processor = SegformerImageProcessor.from_pretrained(model_repo)
         else:
             self.processor = self.custom_processor
         self.model = SegformerForSemanticSegmentation.from_pretrained(model_repo).to(self.device)
+
 
 
 
@@ -36,7 +38,7 @@ class HF_segmodel():
             if self.custom_processor == None:
                 inputs = self.processor(images,return_tensors="pt")['pixel_values'].to(self.device)
             else:
-                inputs = self.processor(images).unsqueeze(0).to(self.device)
+                inputs = torch.stack([self.processor(img) for img in images],axis=0).to(self.device)
 
             logits = self.model(pixel_values = inputs).logits
 
@@ -64,8 +66,8 @@ class HF_segmodel():
         if len(images) != len(segs):
             raise Exception("number of images and seg result not equal")
 
-        if images[0].shape[:-1] != segs[0].shape:
-            raise Exception("shape mismatch, make sure predict() have upsampling = True")
+
+            
 
         imgs=[]
         for i in range(len(images)):
@@ -75,7 +77,11 @@ class HF_segmodel():
                 color_seg[segs[i] == label, :] = color
 
             # Show image + mask
-            img = np.array(images[i]) * 0.5 + color_seg * 0.5
+            if images[0].shape[:-1] != segs[0].shape:
+                img = cv2.resize(images[i],(segs[i].shape[1],segs[i].shape[0])) * 0.5 + color_seg * 0.5
+            else:
+                img = images[i] * 0.5 + color_seg * 0.5
+
             imgs.append(img.astype(np.uint8))
 
         return imgs
@@ -133,3 +139,58 @@ class HF_segmodel():
             [255, 84, 127],
             [255, 170, 127],
         ]
+    
+
+class HF_mask2formermodel():
+   
+    def __init__(self,model_repo,custom_processor=None):
+
+        self.device  = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print("using ",self.device)
+
+        self.custom_processor = custom_processor
+
+
+        if self.custom_processor == None:
+            # self.processor = SegformerImageProcessor.from_pretrained(model_repo)
+            self.processor = AutoImageProcessor.from_pretrained(model_repo)
+        else:
+            self.processor = self.custom_processor
+        # self.model = SegformerForSemanticSegmentation.from_pretrained(model_repo).to(self.device)
+
+
+
+
+    def predict(self,images,upsampling = False):
+
+        """
+        inputs: list of images
+        return predict output and overlayed image
+        """
+
+        with torch.no_grad():
+            if self.custom_processor == None:
+                inputs = self.processor(images,return_tensors="pt")['pixel_values'].to(self.device)
+            else:
+                inputs = torch.stack([self.processor(img) for img in images],axis=0).to(self.device)
+
+            logits = self.model(pixel_values = inputs).logits
+
+        if upsampling:
+
+            upsampled_logits = nn.functional.interpolate(
+                logits,
+                size=images[0].shape[:-1], # (height, width)
+                mode='bilinear',
+                align_corners=False
+            )
+
+            pred_segs = upsampled_logits.argmax(dim=1).cpu()
+
+            return pred_segs,upsampled_logits
+        
+        else:
+
+            pred_segs = logits.argmax(dim=1).cpu()
+
+            return pred_segs,logits

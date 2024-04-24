@@ -2,7 +2,7 @@ from environment.tools.UTILS import locate_obstacle, create_point
 from config.env import env_config
 from config.camera import front_cam
 from utils.tools import carla_point
-from environment.tools.action_wraper import five_action,action_dummy
+from environment.tools.action_wraper import action_dummy
 from environment.tools.reward_fn import reward_dummy
 from environment.tools.reward_fn import reward_from_map
 import carla
@@ -21,6 +21,7 @@ import torch
 # from environment.tools.hud import HUD
 import warnings
 import time
+from carla import ColorConverter as cc
 
 
 sensor_transforms = {
@@ -106,6 +107,8 @@ class CarlaImageEnv(gym.Env):
         self.spectator_index = 0
         self.reach_next_point = False
         self.render_obs_pic = False
+        self.actor_list = []
+        self.manual_end = False
 
         self.spectator_config =  dict(
                                 type = "sensor.camera.rgb",
@@ -137,7 +140,6 @@ class CarlaImageEnv(gym.Env):
         self.world = self.client.get_world()  
 
         settings = self.world.get_settings()
-        self.ori_settings = settings
         settings.fixed_delta_seconds = self.delta_frame
         settings.synchronous_mode = True
         settings.max_substeps = 16
@@ -145,16 +147,12 @@ class CarlaImageEnv(gym.Env):
         self.world.apply_settings(settings)
         self.client.reload_world(False)
 
-        assert self.ori_settings == settings
 
         # set weather 
         self.world.set_weather(carla.WeatherParameters.ClearNoon)
 
         # Destroy all actors if there any 
         # self.world.tick()
-        actors = self.world.get_actors()
-        for actor in actors:
-            actor.destroy()  
 
         # spawn car ===
         self.blueprints = self.world.get_blueprint_library()
@@ -170,6 +168,7 @@ class CarlaImageEnv(gym.Env):
         self.bp_colli = self.blueprints.find('sensor.other.collision')
         self.colli_sensor = self.world.spawn_actor(self.bp_colli, carla.Transform(), attach_to=self.car)
         self.colli_sensor.listen(self.collision_callback)
+        self.actor_list.append(self.colli_sensor)
 
         if self.activate_render:
             # cam for save video and visualize ===
@@ -188,6 +187,7 @@ class CarlaImageEnv(gym.Env):
                 # (carla.Transform(carla.Location(x=-400, y=-200, z=500.0), carla.Rotation(pitch=-90.0)), None)
                 ]
             # self.spectator_rig.extend([(carla.Transform(carla.Location(*c['Location']),carla.Rotation(*c['Rotation'])), Attachment.Rigid) for c in self.cam_config_list])
+            self.spec_cam_bp = self._setting_camera(self.spectator_config)
             self._create_spectator_cam()
 
             # pygame display ==
@@ -195,9 +195,6 @@ class CarlaImageEnv(gym.Env):
             pygame.font.init()
             self.display = pygame.display.set_mode((self.spectator_config['attribute']['image_size_x'], self.spectator_config['attribute']['image_size_y']), pygame.HWSURFACE | pygame.DOUBLEBUF)
             self.clock = pygame.time.Clock()
-
-            # self.hud = HUD(1120, 560)
-            # self.hud.set_vehicle(self.car)
                                                                                                                                                                
     def _setting_camera(self,cam_config):
             
@@ -211,21 +208,20 @@ class CarlaImageEnv(gym.Env):
         self.spectator_index=(self.spectator_index+1)%(len(self.spectator_rig)+len(self.cam_config_list))
         if self.spectator_index >= len(self.spectator_rig):
             self.render_obs_pic = True
-
         else:
             self.render_obs_pic = False
             self.spec_cam.destroy()
             self._create_spectator_cam()
 
     def _create_spectator_cam(self):
-        spec_cam = self._setting_camera(self.spectator_config)
 
-        self.spec_cam = self.world.spawn_actor(spec_cam, self.spectator_rig[self.spectator_index][0], attach_to=self.car,attachment_type= self.spectator_rig[self.spectator_index ][1])
+        self.spec_cam = self.world.spawn_actor(self.spec_cam_bp, self.spectator_rig[self.spectator_index][0], attach_to=self.car,attachment_type= self.spectator_rig[self.spectator_index ][1])
     
         self.spec_cam.listen(lambda data: self.process_spectator(data))
+        
 
     def _create_observer_cam(self):
-        self.cams = []
+        # self.cams = []
         self.camera_dict = {s['name']:s for s in self.cam_config_list}
         for c in self.cam_config_list:
 
@@ -239,10 +235,13 @@ class CarlaImageEnv(gym.Env):
             bp_cam = self._setting_camera(c)
             cam = self.world.spawn_actor(bp_cam, carla.Transform(carla.Location(*c['Location']), carla.Rotation(*c['Rotation'])), attach_to=self.car)
             cam.listen(lambda data, cam_name =c['name'] : preprocess(data,cam_name))
-            self.cams.append(cam)
+            self.actor_list.append(cam)
      
    
     def reset(self):
+
+        if self.manual_end:
+            raise Exception("CarlaEnv.reset() called after the environment was closed.")
 
         # initial basic param ===============================================================
         self.curr_steer_position = 0
@@ -250,7 +249,6 @@ class CarlaImageEnv(gym.Env):
         self.collision = False
         self.ep+=1
         self.step_count = 0
-        self.manual_end = False
 
         self.reset_car()
 
@@ -374,23 +372,33 @@ class CarlaImageEnv(gym.Env):
      
     
     def process_seg(self, data,cam_name):
-        img = np.array(data.raw_data)
-        img = img.reshape((self.camera_dict[cam_name]['attribute']['image_size_y'], self.camera_dict[cam_name]['attribute']['image_size_x'], 4))
-        img = img[:, :, 2]
-        seg_tmp = np.zeros([self.camera_dict[cam_name]['attribute']['image_size_y'],self.camera_dict[cam_name]['attribute']['image_size_x']], dtype=np.uint8)
+        
+        # img = np.array(data.raw_data)
+        # img = img.reshape((self.camera_dict[cam_name]['attribute']['image_size_y'], self.camera_dict[cam_name]['attribute']['image_size_x'], 4))
+        # img = img[:, :, 2]
+        # seg_tmp = np.zeros([self.camera_dict[cam_name]['attribute']['image_size_y'],self.camera_dict[cam_name]['attribute']['image_size_x']], dtype=np.uint8)
 
-        seg_tmp[img==1] = 1 # Road
-        seg_tmp[img==24] = 2 # RoadLines
-        seg_tmp[img==12] = 3 # Pedestrians
-        seg_tmp[img==13] = 3 # Rider
-        seg_tmp[img==14] = 3 # Car
-        seg_tmp[img==15] = 3 # Truck
-        seg_tmp[img==16] = 3 # Bus
-        seg_tmp[img==18] = 3 # Motorcycle
-        seg_tmp[img==19] = 3 # Bicycle
+        # seg_tmp[img==1] = 1 # Road
+        # seg_tmp[img==24] = 2 # RoadLines
+        # seg_tmp[img==12] = 3 # Pedestrians
+        # seg_tmp[img==13] = 3 # Rider
+        # seg_tmp[img==14] = 3 # Car
+        # seg_tmp[img==15] = 3 # Truck
+        # seg_tmp[img==16] = 3 # Bus
+        # seg_tmp[img==18] = 3 # Motorcycle
+        # seg_tmp[img==19] = 3 # Bicycle
 
-        self.cam_tmp[cam_name] = cv2.resize(seg_tmp, (self.camera_dict[cam_name]['attribute']['image_size_y'], self.camera_dict[cam_name]['attribute']['image_size_y']), interpolation=cv2.INTER_NEAREST)
+        # self.cam_tmp[cam_name] = cv2.resize(seg_tmp, (self.camera_dict[cam_name]['attribute']['image_size_y'], self.camera_dict[cam_name]['attribute']['image_size_y']), interpolation=cv2.INTER_NEAREST)
 
+        data.convert(cc.CityScapesPalette)
+        seg_tmp = np.frombuffer(data.raw_data, dtype=np.dtype("uint8"))
+        seg_tmp = np.reshape(seg_tmp, (data.height, data.width, 4))
+        seg_tmp = seg_tmp[:, :, :3]
+        seg_tmp = seg_tmp[:, :, ::-1]
+        
+        self.cam_tmp[cam_name] = seg_tmp
+
+        
     def process_rgb(self, data,cam_name):
         img = np.array(data.raw_data)
         img = img.reshape((self.camera_dict[cam_name]['attribute']['image_size_y'], self.camera_dict[cam_name]['attribute']['image_size_x'], 4))
@@ -445,6 +453,15 @@ class CarlaImageEnv(gym.Env):
 
 
     def reset_world(self):
+        try:
+            self.spec_cam.destroy()
+            for actor in self.actor_list:
+
+                    actor.destroy()
+
+        except:
+            print("sensor already destroy")  
+
         settings = self.world.get_settings()
         settings.synchronous_mode = False
         settings.no_rendering_mode = False
@@ -458,9 +475,7 @@ class CarlaImageEnv(gym.Env):
         
         # self.world.apply_settings(self.ori_settings)
 
-        actors = self.world.get_actors()
-        for actor in actors:
-            actor.destroy()  
+
 
     # def set_world(self):
     #     settings = self.world.get_settings()
