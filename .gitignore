@@ -5,3 +5,4 @@ save
 autoencoder/dataset
 autoencoder/reconstructed
 data
+seg/tao_model
