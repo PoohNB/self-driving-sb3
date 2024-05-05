@@ -94,12 +94,27 @@ class ImageController:
     def apply_processor(self,processor):
         self.process = processor
 
-    def hlep(self):
+    def help(self):
         print(""" 
               
-              processor input: image array 
-                        output : list of image       
-                                                      
+              process guide  
+                    arguments
+                        input: bgr image [numpy array]
+                                crop_box tuplr(y1,y2,x1,x2)
+                        output : list of image (you can return multiple images)
+              
+              example:
+
+                  def crop_visual(img,crop_box):
+                    y1,y2, x1,x2 = crop_box
+                    mask = np.zeros_like(img)
+                    mask[y1:y2, x1:x2] = 255
+
+                    # Darken the areas outside the specified region
+                    img_darkened = cv2.addWeighted(img, 0.5, mask, 0.5, 0)
+
+                    return [img_darkened]      
+                                                    
               """)
 
 
