@@ -40,6 +40,8 @@ class seg_vae_act():
     """
     class for convert image observation to state space
 
+    
+
     """
 
     def __init__(self,

@@ -1,0 +1,13 @@
+[33mac48e92[m[33m ([m[1;36mHEAD -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m HEAD@{0}: reset: moving to HEAD~2
+[33m041face[m HEAD@{1}: commit: vae
+[33md42e19b[m HEAD@{2}: commit: vae
+[33mac48e92[m[33m ([m[1;36mHEAD -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m HEAD@{3}: commit: complete seg model wrapper
+[33m13db024[m HEAD@{4}: commit: trt testing
+[33m77821ce[m HEAD@{5}: commit: doing tensorrt
+[33mb32f831[m HEAD@{6}: commit: test env render,switch camera
+[33ma0e3730[m HEAD@{7}: commit: edit the env
+[33m72d14fe[m HEAD@{8}: commit: editing environment
+[33me6e8d5e[m HEAD@{9}: commit: tested the hf_segmodel
+[33m0b0525f[m HEAD@{10}: commit: edit the code
+[33mfcc5973[m HEAD@{11}: Branch: renamed refs/heads/main to refs/heads/main
+[33mfcc5973[m HEAD@{13}: commit (initial): first commit

@@ -1,0 +1,1 @@
+export PYTHONPATH=/home/lpr/project_nattabude/carla/self-driving-sb3:$PYTHONPATH
