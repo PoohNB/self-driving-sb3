@@ -40,12 +40,12 @@ class seg_vae_act():
     """
     class for convert image observation to state space
 
-    
+    collect list of image rgb
 
     """
 
     def __init__(self,
-                 vae_model,
+                 vae_encoder,
                  seg_model,
                  latent_space,
                  hist_len,
@@ -53,7 +53,7 @@ class seg_vae_act():
                  skip_frame=0):
         
         self.seg = seg_model
-        self.vae = vae_model
+        self.vae_encoder = vae_encoder
         self.latent_space = latent_space
         self.skip_frame = skip_frame
         self.hist_len = hist_len
@@ -74,7 +74,7 @@ class seg_vae_act():
     
     def reset(self,imgs):
         pred_segs = self.seg.predict(imgs)
-        latents = self.vae.get_latent(pred_segs)
+        latents = self.vae_encoder(pred_segs)
         cat_latent = torch.cat(latents, dim=1)
         observation = np.concatenate((cat_latent, [0]*self.act_num), axis=-1)
         self.history_state.extend(([observation]*(self.hist_len*(self.skip_frame+1)))-self.skip_frame)
@@ -87,7 +87,7 @@ class seg_vae_act():
         act = arg["act"]
         
         seg_imgs = self.seg.predict(imgs)
-        latents = self.vae.get_latent(seg_imgs)
+        latents = self.vae_encoder(seg_imgs)
         cat_latent = torch.cat(latents, dim=1)
         observation = np.concatenate((cat_latent, act), axis=-1)
         self.history_state.append(observation)

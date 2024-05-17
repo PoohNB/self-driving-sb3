@@ -32,6 +32,7 @@ class CarlaImageEnv(gym.Env):
 
     """
     open-ai environment for work with carla simulation server
+
     the function include 
     - send list of image (np array) from camera to observer return the state from observer
     - send the vehicle to reward_fn return the reward from reward_fn
@@ -71,9 +72,6 @@ class CarlaImageEnv(gym.Env):
         if discrete_actions is not None and not isinstance(discrete_actions,dict):
             raise Exception("discrete action have to be dict type")
         
-        # make our work comparable 
-        torch.manual_seed(seed)
-        torch.backends.cudnn.deterministic = True
         random.seed(seed)
 
         # check if gpu available
@@ -95,6 +93,7 @@ class CarlaImageEnv(gym.Env):
         self.activate_render = activate_render
         self.cam_config_list = cam_config_list
         self.camera_dict = {s['name']:s for s in self.cam_config_list}
+        self.car_spawnponts = [carla_point(p) for p in car_spawn]   
 
         host = env_config['host']
         port = env_config['port']
@@ -133,7 +132,7 @@ class CarlaImageEnv(gym.Env):
 
         self.observation_space = self.observer.gym_obs()
             
-        # setting the carla ============================================================================
+        # setting world ============================================================================
 
         self.client = carla.Client(host, port)
         self.client.set_timeout(120)
@@ -154,11 +153,10 @@ class CarlaImageEnv(gym.Env):
         # Destroy all actors if there any 
         # self.world.tick()
 
-        # spawn car ===
+        # create actor
         self.blueprints = self.world.get_blueprint_library()
         self.bp_car = self.blueprints.filter(vehicle)[0]
-        # list of spawn point ===
-        self.car_spawnponts = [carla_point(p) for p in car_spawn]        
+        # list of spawn point ===     
         self.car = self.world.spawn_actor(self.bp_car, self.car_spawnponts[0])
 
         # attach cam to car ===

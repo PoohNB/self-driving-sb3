@@ -96,9 +96,9 @@ class ImageController:
             print(e)
         
         finally:
-
+            
             cv2.destroyAllWindows()
-
+            print("(y1,y2,x1,x2): ",crop_box)
       
     def crop_visual(self,**arg):
         y1,y2, x1,x2 = arg['crop_box']

@@ -48,8 +48,8 @@ class Encoder(nn.Module):
         self.mu = nn.Linear(1024, latent_dims)
         self.sigma = nn.Linear(1024, latent_dims)
         self.N = torch.distributions.Normal(0, 1)
-        self.N.loc = self.N.loc.to(device)
-        self.N.scale = self.N.scale.to(device)
+        # self.N.loc = self.N.loc.to(device)
+        # self.N.scale = self.N.scale.to(device)
         self.kl = 0
 
     def forward(self, x):
@@ -62,7 +62,7 @@ class Encoder(nn.Module):
         x = self.linear(x)
         mu =  self.mu(x)
         sigma = torch.exp(self.sigma(x))
-        z = mu + sigma*self.N.sample(mu.shape)
+        z = mu + sigma*self.N.sample(mu.shape).to(device)
         self.kl = (sigma**2 + mu**2 - torch.log(sigma) - 0.5).sum()
         return z
 

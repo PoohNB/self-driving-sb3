@@ -6,4 +6,4 @@ autoencoder/dataset
 autoencoder/reconstructed
 autoencoder/model
 data
-seg/tao_model
+segmentation/tao_model
