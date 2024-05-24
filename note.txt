@@ -1,3 +1,16 @@
 export PYTHONPATH=/home/lpr/project_nattabude/carla/self-driving-sb3:$PYTHONPATH
 export PYTHONPATH=$PWD:$PYTHONPATH
 git reset --soft HEAD~1
+
+/home/lpr/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib
+python3 -m pip install tensorrt-*-cp38-none-linux_x86_64.whl
+python3 -m pip install onnx_graphsurgeon-0.3.12-py2.py3-none-any.whl
+
+export PATH=/usr/local/cuda-12.4/bin${PATH:+:${PATH}}
+export LD_LIBRARY_PATH=/usr/local/cuda-12.4/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}:/home/lpr/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib
+
+
+# how to find cuda path
+find $HOME -name nvcc 2>/dev/null
+find /usr/local -name nvcc 2>/dev/null
+

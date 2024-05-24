@@ -41,6 +41,10 @@ class CarlaImageEnv(gym.Env):
     - send the command for control the car
     - construct the image to render in pygame
 
+    note for step: in real world after model receive image from camera it will use some time to predict the action (which is delta time between frame) 
+    then send the action and receive the next image simutaneosly so the step is not predict-->apply action-->tick world, 
+      but predict -->apply last action --> tick world or predict-->tick world-->apply function
+
     """
 
 

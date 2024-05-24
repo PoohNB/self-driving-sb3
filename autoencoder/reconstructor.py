@@ -6,7 +6,7 @@ from torchvision import datasets
 from CNNVae import VariationalAutoencoder
 # Hyper-parameters
 
-model_path = 'autoencoder/model/vae128/best'
+model_path = 'autoencoder/model/vae32_v2/best'
 data_dir = 'autoencoder/dataset/'
 
 variables = {}

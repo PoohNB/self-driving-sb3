@@ -8,14 +8,13 @@ import torch
 import shutil
 import os
 
-modelname = 'vae128'
+config_path = 'config/vae.py'
+modelname = 'vae24'
 log_path = os.path.join("autoencoder/runs",modelname)
 checkpoint_path = os.path.join("autoencoder/model",modelname)
 data_dir = 'autoencoder/dataset/'
 
 assert not os.path.exists(checkpoint_path)
-
-config_path = 'config/vae.py'
 
 
 # Applying Transformation
@@ -42,8 +41,8 @@ train_data, val_data = random_split(train_data, [round(m-m*0.15), round(m*0.15)]
 
 
 # Data Loading
-trainloader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True)
-validloader = DataLoader(val_data, batch_size=BATCH_SIZE, shuffle=True)
+trainloader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True,num_workers=4,pin_memory=True)
+validloader = DataLoader(val_data, batch_size=BATCH_SIZE, shuffle=True,num_workers=4,pin_memory=True)
 # testloader = torch.utils.data.DataLoader(test_data, batch_size=BATCH_SIZE)
 
 model = VariationalAutoencoder(latent_dims=LATENT_SPACE)

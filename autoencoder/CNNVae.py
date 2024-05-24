@@ -22,6 +22,7 @@ class Encoder(nn.Module):
                  ):  
         super().__init__()
 
+        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
         self.encoder_layer1 = nn.Sequential(
             nn.Conv2d(1, 32, 5, stride=2),  # 79, 39
@@ -31,6 +32,7 @@ class Encoder(nn.Module):
             nn.Conv2d(32, 64, 3, stride=2, padding=1),  # 40, 20
             nn.BatchNorm2d(64),
             nn.LeakyReLU())
+
 
         self.encoder_layer3 = nn.Sequential(
             nn.Conv2d(64, 128, 5, stride=2),  # 19, 9
@@ -52,8 +54,10 @@ class Encoder(nn.Module):
         # self.N.scale = self.N.scale.to(device)
         self.kl = 0
 
+        self.to(self.device)
+
     def forward(self, x):
-        x = x.to(device)
+        x = x.to(self.device)
         x = self.encoder_layer1(x)
         x = self.encoder_layer2(x)
         x = self.encoder_layer3(x)
@@ -62,7 +66,7 @@ class Encoder(nn.Module):
         x = self.linear(x)
         mu =  self.mu(x)
         sigma = torch.exp(self.sigma(x))
-        z = mu + sigma*self.N.sample(mu.shape).to(device)
+        z = mu + sigma*self.N.sample(mu.shape).to(self.device)
         self.kl = (sigma**2 + mu**2 - torch.log(sigma) - 0.5).sum()
         return z
 
@@ -77,6 +81,8 @@ class Decoder(nn.Module):
     def __init__(self, 
                  latent_dims):
         super().__init__()
+
+        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
         self.decoder_linear = nn.Sequential(
             nn.Linear(latent_dims, 1024),
@@ -97,6 +103,8 @@ class Decoder(nn.Module):
             nn.ConvTranspose2d(32, 1, 5, stride=2),
             nn.Sigmoid())
         
+        self.to(self.device)
+        
     def forward(self, x):
         x = self.decoder_linear(x)
         x = self.unflatten(x)
@@ -113,13 +121,14 @@ class Decoder(nn.Module):
 class VariationalAutoencoder(nn.Module):
     def __init__(self, latent_dims):
         super(VariationalAutoencoder, self).__init__()
+        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         self.encoder = Encoder(latent_dims)
         self.decoder = Decoder(latent_dims)
-        self.to(device)
-        print('using: ',device)
+        self.to(self.device)
+        print('using: ',self.device)
 
     def forward(self, x):
-        x = x.to(device)
+        x = x.to(self.device)
         z = self.encoder(x)
         return self.decoder(z)
     
@@ -142,10 +151,12 @@ class VariationalAutoencoder(nn.Module):
         train_loss = 0.0
         for(x, _) in tqdm(trainloader,desc='training'):
             # Move tensor to the proper device
-            x = x.to(device)
+            x = x.to(self.device)
             x_hat = self(x)
             loss = ((x - x_hat)**2).sum() + self.encoder.kl
-            optim.zero_grad()
+            optim.zero_grad(set_to_none=True)
+            # for param in self.parameters():
+            #     param.grad = None
             loss.backward()
             optim.step()
             train_loss+=loss.item()
@@ -159,7 +170,7 @@ class VariationalAutoencoder(nn.Module):
         with torch.no_grad(): # No need to track the gradients
             for x, _ in tqdm(valloader,desc='evaluating'):
                 # Move tensor to the proper device
-                x = x.to(device)
+                x = x.to(self.device)
                 # Encode data
                 encoded_data = self.encoder(x)
                 # Decode data
@@ -208,7 +219,7 @@ class VariationalAutoencoder(nn.Module):
         with torch.no_grad(): # No need to track the gradients
             for x, _ in dataloader:
                 # Move tensor to the proper device
-                x = x.to(device)
+                x = x.to(self.device)
                 # Decode data
                 x_hat = self(x)
                 x_hat = x_hat.cpu()
