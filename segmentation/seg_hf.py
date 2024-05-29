@@ -17,6 +17,7 @@ class HFsegWrapper(SegmodelWrapper):
     def __init__(self,
                  model_repo,
                  label_mapping=None,
+                 crop = None,
                  custom_processor=None,
                  custom_palette=None,
                  fp16 = False,
@@ -26,11 +27,15 @@ class HFsegWrapper(SegmodelWrapper):
         if label_mapping is not None:
             assert isinstance(label_mapping,dict)
 
+        if crop is not None:
+            assert len(crop) == 2
+
         self.device  = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print("using ",self.device)
 
         self.torch_dtype = torch.float16 if fp16 else torch.float32
 
+        self.crop = crop
         self.label_mapping = label_mapping
         self.custom_processor = custom_processor
         self.processor,self.model = self._init_preprocess_model(model_repo)
@@ -55,19 +60,26 @@ class HFsegWrapper(SegmodelWrapper):
         """
         raise NotImplementedError("Method '_get_segmaps_outputs' must be implemented in subclasses")
     
+    
     def __call__(self,images):
 
         """
         inputs: list of images
         return predict output and overlayed image
         """
-        self.images = images
+        if self.crop is not None:
+            h,w = self.crop
+            shape = images[0].shape
+            y1,y2, x1,x2 = max(int(shape[0]/2-h/2),0), min(int(shape[0]/2+h/2),shape[0]), max(int(shape[1]/2-w/2),0), min(int(shape[1]/2+w/2),shape[1])
+            self.images = [img[y1:y2,x1:x2] for img in images]
+        else:
+            self.images = images
 
         with torch.no_grad():
             if self.custom_processor is None:
-                inputs = self.processor(images,return_tensors="pt").to(self.device,self.torch_dtype)
+                inputs = self.processor(self.images,return_tensors="pt").to(self.device,self.torch_dtype)
             else:
-                inputs = {'pixel_values':self.processor(torch.stack([self.processor(img) for img in images],axis=0))}.to(self.device,self.torch_dtype)
+                inputs = {'pixel_values':self.processor(torch.stack([self.processor(img) for img in self.images],axis=0))}.to(self.device,self.torch_dtype)
 
             self.outputs = self.model(**inputs)
 

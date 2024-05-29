@@ -1,4 +1,4 @@
-from environment.tools.UTILS import locate_obstacle, create_point
+from environment.tools.scene_designer import locate_obstacle, create_point
 
 import carla
 import cv2

@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from scipy import ndimage
 import carla
+import random
 
 MAX_OBSTACLE_FIELD = 200
 
@@ -43,18 +44,53 @@ class locate_obstacle():
 
         return img_for_range
     
-def create_point(location, rotation=None):
-    location = carla.Location(x=location[0], y=location[1], z=location[2])
-    if rotation is not None:
-        rotation = carla.Rotation(pitch=rotation[0], yaw=rotation[1], roll=rotation[2])
-        return carla.Transform(location, rotation)
-    return location
 
 
-def carla_point(pos_ro):
-    location = carla.Location(*pos_ro[0])
-    rotation = carla.Rotation(yaw=pos_ro[1])
-    return carla.Transform(location, rotation)
+class ObjectPlacer:
+    def __init__(self, world, object_blueprint, available_locations,seed=2024):
+        """
+        Initialize the ObjectPlacer.
 
+        :param world: The CARLA world object.
+        :param object_blueprint: The blueprint of the object to place.
+        :param available_locations: A list of available locations where objects can be placed.
+        """
+        random.seed(seed)
+        self.world = world
+        self.object_blueprint = object_blueprint
+        self.available_locations = available_locations
+        self.spawned_objects = []
 
+    def reset(self):
+        """
+        Reset the scene by randomly placing objects at the available locations.
+        """
+        # Clear previously spawned objects
+        self.clear_objects()
+
+        # Randomly choose locations to place objects
+        chosen_locations = random.sample(self.available_locations, len(self.available_locations))
+
+        # Spawn objects at the chosen locations
+        for location in chosen_locations:
+            transform = carla.Transform(location)
+            obj = self.world.spawn_actor(self.object_blueprint, transform)
+            self.spawned_objects.append(obj)
+
+    def clear_objects(self):
+        """
+        Destroy all spawned objects.
+        """
+        for obj in self.spawned_objects:
+            if obj.is_alive:
+                obj.destroy()
+        self.spawned_objects = []
+
+    def set_available_locations(self, new_locations):
+        """
+        Update the available locations for object placement.
+
+        :param new_locations: A new list of available locations.
+        """
+        self.available_locations = new_locations
 

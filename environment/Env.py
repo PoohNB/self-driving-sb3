@@ -1,10 +1,10 @@
-from environment.tools.UTILS import locate_obstacle, create_point
+from environment.tools.scene_designer import locate_obstacle, create_point
 from config.env import env_config
 from config.camera import front_cam
 from utils.tools import carla_point
 from environment.tools.action_wraper import action_dummy
-from environment.tools.reward_fn import reward_dummy
-from environment.tools.reward_fn import reward_from_map
+from environment.tools.rewarder import reward_dummy
+from environment.tools.rewarder import reward_from_map
 import carla
 import cv2
 from collections import deque
@@ -52,9 +52,9 @@ class CarlaImageEnv(gym.Env):
                  car_spawn = (),
                  discrete_actions = None,
                  observer = None,
+                 reward_fn = None,  
                  delta_frame = 0.2,
-                 action_wraper = action_dummy,
-                 reward_fn = None,    
+                 action_wraper = action_dummy,  
                  env_config =env_config,
                  cam_config_list=[front_cam], 
                  activate_render = False,
@@ -375,30 +375,30 @@ class CarlaImageEnv(gym.Env):
     
     def process_seg(self, data,cam_name):
         
-        # img = np.array(data.raw_data)
-        # img = img.reshape((self.camera_dict[cam_name]['attribute']['image_size_y'], self.camera_dict[cam_name]['attribute']['image_size_x'], 4))
-        # img = img[:, :, 2]
-        # seg_tmp = np.zeros([self.camera_dict[cam_name]['attribute']['image_size_y'],self.camera_dict[cam_name]['attribute']['image_size_x']], dtype=np.uint8)
+        img = np.array(data.raw_data)
+        img = img.reshape((self.camera_dict[cam_name]['attribute']['image_size_y'], self.camera_dict[cam_name]['attribute']['image_size_x'], 4))
+        img = img[:, :, 2]
+        seg_tmp = np.zeros([self.camera_dict[cam_name]['attribute']['image_size_y'],self.camera_dict[cam_name]['attribute']['image_size_x']], dtype=np.uint8)
 
-        # seg_tmp[img==1] = 1 # Road
-        # seg_tmp[img==24] = 2 # RoadLines
-        # seg_tmp[img==12] = 3 # Pedestrians
-        # seg_tmp[img==13] = 3 # Rider
-        # seg_tmp[img==14] = 3 # Car
-        # seg_tmp[img==15] = 3 # Truck
-        # seg_tmp[img==16] = 3 # Bus
-        # seg_tmp[img==18] = 3 # Motorcycle
-        # seg_tmp[img==19] = 3 # Bicycle
+        seg_tmp[img==1] = 1 # Road
+        seg_tmp[img==24] = 2 # RoadLines
+        seg_tmp[img==12] = 3 # Pedestrians
+        seg_tmp[img==13] = 3 # Rider
+        seg_tmp[img==14] = 3 # Car
+        seg_tmp[img==15] = 3 # Truck
+        seg_tmp[img==16] = 3 # Bus
+        seg_tmp[img==18] = 3 # Motorcycle
+        seg_tmp[img==19] = 3 # Bicycle
 
-        # self.cam_tmp[cam_name] = cv2.resize(seg_tmp, (self.camera_dict[cam_name]['attribute']['image_size_y'], self.camera_dict[cam_name]['attribute']['image_size_y']), interpolation=cv2.INTER_NEAREST)
+        self.cam_tmp[cam_name] = cv2.resize(seg_tmp, (self.camera_dict[cam_name]['attribute']['image_size_y'], self.camera_dict[cam_name]['attribute']['image_size_y']), interpolation=cv2.INTER_NEAREST)
 
-        data.convert(cc.CityScapesPalette)
-        seg_tmp = np.frombuffer(data.raw_data, dtype=np.dtype("uint8"))
-        seg_tmp = np.reshape(seg_tmp, (data.height, data.width, 4))
-        seg_tmp = seg_tmp[:, :, :3]
-        seg_tmp = seg_tmp[:, :, ::-1]
+        # data.convert(cc.CityScapesPalette)
+        # seg_tmp = np.frombuffer(data.raw_data, dtype=np.dtype("uint8"))
+        # seg_tmp = np.reshape(seg_tmp, (data.height, data.width, 4))
+        # seg_tmp = seg_tmp[:, :, :3]
+        # seg_tmp = seg_tmp[:, :, ::-1]
         
-        self.cam_tmp[cam_name] = seg_tmp
+        # self.cam_tmp[cam_name] = seg_tmp
 
         
     def process_rgb(self, data,cam_name):

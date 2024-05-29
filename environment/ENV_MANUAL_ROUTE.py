@@ -1,10 +1,10 @@
-from environment.tools.UTILS import locate_obstacle, create_point
+from environment.tools.scene_designer import locate_obstacle, create_point
 from config.env import *
 from config.camera import front_cam,left_cam,right_cam
-from config.position import car_spawn
+from config.spawn_points import car_spawn
 from utils.tools import carla_point
 from environment.tools.action_wraper import five_action,dummy
-from environment.tools.reward_fn import reward_from_map
+from environment.tools.rewarder import reward_from_map
 import carla
 import cv2
 from collections import deque

@@ -61,7 +61,7 @@ from __future__ import print_function
 # -- find carla module ---------------------------------------------------------
 # ==============================================================================
 
-from config.position import car_spawn
+from config.spawn_points import car_spawn
 from utils.tools import carla_point
 import glob
 import os
