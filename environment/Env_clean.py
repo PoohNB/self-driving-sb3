@@ -5,6 +5,7 @@ from utils.tools import carla_point
 from environment.tools.action_wraper import OriginAction
 from environment.tools.rewarder import reward_dummy
 from environment.tools.rewarder import reward_from_map
+from environment.tools.hud import get_actor_display_name
 import carla
 import cv2
 from collections import deque
@@ -37,7 +38,7 @@ class CarlaImageEnv(gym.Env):
 
     the function include 
     - send list of image (np array) from camera to observer return the state from observer
-    - send the vehicle to reward_fn return the reward from reward_fn
+    - send the vehicle to rewarder return the reward from rewarder
     - return done if vehicle on destination or collis or out from road or go wrong direction
     - return info ??
     - send the command for control the car
@@ -51,28 +52,15 @@ class CarlaImageEnv(gym.Env):
 
 
     def __init__(self,
-                 observer = None,
-                 reward_fn = None,  
-                 action_wrapper = OriginAction(),  
+                 observer,
+                 rewarder,   
+                 car_spawn,
+                 action_wrapper = OriginAction(), 
                  env_config =env_config,
-                 car_spawn = None,
                  cam_config_list=[front_cam], 
                  discrete_actions = None,
                  activate_render = False,
                  seed=2024):
-        
-        # check the arguments
-        if not len(cam_config_list):
-            warnings.warn("no sensor config define")
-        
-        if car_spawn is None:
-            raise Exception("no car spawn point")
-        
-        if observer is None:
-            raise Exception("no observer object apply")
-        
-        if reward_fn is None:
-            raise Exception("no reward func apply")
         
         if discrete_actions is not None and not isinstance(discrete_actions,dict):
             raise Exception("discrete action have to be dict type")
@@ -82,7 +70,7 @@ class CarlaImageEnv(gym.Env):
 
         self.observer = observer
         self.action_wraper = action_wrapper
-        self.reward_fn = reward_fn
+        self.rewarder = rewarder
         self.discrete_actions = discrete_actions
         self.activate_render = activate_render
 
@@ -101,7 +89,6 @@ class CarlaImageEnv(gym.Env):
         else:
             print("using discret action")
             self.action_space = spaces.Discrete(len(discrete_actions))
-            # self.observation_space['action'] = spaces.MultiDiscrete()
 
         self.observation_space = self.observer.gym_obs()
             
@@ -149,9 +136,6 @@ class CarlaImageEnv(gym.Env):
 
     def step(self, action):
 
-        # ackermanncontrol ===
-        # control = carla.VehicleAckermannControl(steer=steer, steer_speed=0.3 ,speed=throttle, acceleration=0.3, jerk=0.1)
-        # self.car.apply_ackermann_control(control)
         # set obstable movement===
         # action = copy.deepcopy(action)
         if self.manual_end:
@@ -166,6 +150,9 @@ class CarlaImageEnv(gym.Env):
 
         control = carla.VehicleControl(throttle=throttle, steer=steer, brake=brake,
                                        hand_brake=False, reverse=False, manual_gear_shift=False, gear=0)
+        
+        # control = carla.VehicleAckermannControl(steer=steer, steer_speed=0.3 ,speed=throttle, acceleration=0.3, jerk=0.1)
+        # self.car.apply_ackermann_control(control)
 
         self.world.tick()
 
@@ -180,7 +167,7 @@ class CarlaImageEnv(gym.Env):
             self.pygamectrl.receive_key()
             
         # get reward
-        reward = self.reward_fn.reward(self.car)
+        reward = self.rewarder.reward(self.car)
 
         # basic termination -> colision or reach max step or out of the rount more than n step 
         self.step_count+=1
@@ -194,11 +181,12 @@ class CarlaImageEnv(gym.Env):
 
     def render(self):
 
-        self.spec_image = self.spectator.get_image()
+        self.spec_image = self.spectator.get_obs()
 
         if self.show_obs:
             pass
 
+        self.pygamectrl.hud.notification("Collision with {}".format(get_actor_display_name(self.colli_sensor.event.other_actor)))
         self.pygamectrl.render(self.spec_image)   
 
     def close(self):

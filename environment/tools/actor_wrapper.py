@@ -241,10 +241,11 @@ class CollisionSensor(CarlaActorBase):
     def __init__(self,wrapped_world,wrapped_veh):
         self.world = wrapped_world.get_carla_world()
         self.car =  wrapped_veh.get_carla_actor()
-        self.bp_colli = self.blueprints.find('sensor.other.collision')
+        blueprints = self.world.get_blueprint_library()
+        self.bp_colli = blueprints.find('sensor.other.collision')
         self.colli_sensor = self.world.spawn_actor(self.bp_colli, carla.Transform(), attach_to=self.car)
         self.colli_sensor.listen(self.collision_callback)
-        
+        self.event=None
         super().__init__(wrapped_world,self.colli_sensor,tag="colli")
 
     def reset(self):
@@ -253,6 +254,7 @@ class CollisionSensor(CarlaActorBase):
     def collision_callback(self, event):
         if event.other_actor.semantic_tags[0] not in [1, 24]:
             self.collision = True
+        self.event = event
 
 class Vehicle(CarlaActorBase):
 
@@ -382,10 +384,7 @@ class World(ManageActors):
         self.destroy_actors()
         self.set_asynchornous()
 
-    def tick(self):
-        self.world.tick()
-
-    def set_weather(self):
+    def random_wather(self):
         pass
 
     def get_carla_world(self):

@@ -7,3 +7,4 @@ autoencoder/reconstructed
 autoencoder/model
 data
 segmentation/tao_model
+environment/tools/rewardmask

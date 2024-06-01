@@ -61,7 +61,8 @@ from __future__ import print_function
 # -- find carla module ---------------------------------------------------------
 # ==============================================================================
 
-from config.spawn_points import car_spawn
+from config.env.spawn_points import ait_football
+car_spawn = ait_football
 from utils.tools import carla_point
 import glob
 import os
@@ -192,7 +193,7 @@ def get_actor_blueprints(world, filter, generation):
 
 
 class World(object):
-    def __init__(self, carla_world, hud, args):
+    def __init__(self, carla_world, hud,traffic_manager, args):
         self.world = carla_world
         self.sync = args.sync
         self.spawn = args.spawn
@@ -238,6 +239,7 @@ class World(object):
             carla.MapLayer.Walls,
             carla.MapLayer.All
         ]
+        self.traffic_manager = traffic_manager
 
     def restart(self):
         self.player_max_speed = 1.589
@@ -275,6 +277,9 @@ class World(object):
             self.destroy()
             self.player = self.world.try_spawn_actor(blueprint, spawn_point)
             self.show_vehicle_telemetry = False
+            # self.traffic_manager.ignore_lights_percentage(self.player, 0)
+            # self.traffic_manager.auto_lane_change(self.player, False)
+            # self.traffic_manager.vehicle_percentage_speed_difference(self.player, 0)
 #            self.modify_vehicle_physics(self.player)
         while self.player is None:
             if not self.map.get_spawn_points():
@@ -289,6 +294,7 @@ class World(object):
                 
             
             self.player = self.world.try_spawn_actor(blueprint, spawn_point)
+
             self.show_vehicle_telemetry = False
 #            self.modify_vehicle_physics(self.player)
         # Set up the sensors.
@@ -1243,6 +1249,7 @@ class CameraManager(object):
 # ==============================================================================
 
 
+
 def game_loop(args):
     pygame.init()
     pygame.font.init()
@@ -1252,6 +1259,7 @@ def game_loop(args):
     try:
         client = carla.Client(args.host, args.port)
         client.set_timeout(2000.0)
+        traffic_manager = client.get_trafficmanager()
 
         sim_world = client.get_world()
         if args.sync:
@@ -1262,8 +1270,17 @@ def game_loop(args):
                 settings.fixed_delta_seconds = 0.05
             sim_world.apply_settings(settings)
 
-            traffic_manager = client.get_trafficmanager()
             traffic_manager.set_synchronous_mode(True)
+
+            # Set the global left lane driving
+            # traffic_manager.global_percentage_speed_difference(0)
+            # traffic_manager.set_synchronous_mode(True)
+            # traffic_manager.set_random_device_seed(0)
+            # traffic_manager.set_global_distance_to_leading_vehicle(1.0)
+            
+            # # Set left-hand traffic mode
+            # traffic_manager.set_osm_mode(True)
+            # traffic_manager.global_left_handedness(True)
 
         if args.autopilot and not sim_world.get_settings().synchronous_mode:
             print("WARNING: You are currently in asynchronous mode and could "
@@ -1276,7 +1293,7 @@ def game_loop(args):
         pygame.display.flip()
 
         hud = HUD(args.width, args.height)
-        world = World(sim_world, hud, args)
+        world = World(sim_world, hud,traffic_manager, args)
         controller = KeyboardControl(world, args.autopilot)
 
         if args.sync:
