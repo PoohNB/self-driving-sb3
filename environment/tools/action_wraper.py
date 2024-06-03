@@ -1,6 +1,6 @@
  
 class ActionWrapper:
-    def __init__(self, action_config, stable_steer=False):
+    def __init__(self, action_config=None, stable_steer=False):
         self.action_config = action_config
         self.stable_steer = stable_steer
         if self.stable_steer:
@@ -36,7 +36,7 @@ class ActionWrapper:
 
 
 class OriginAction(ActionWrapper):
-    def __init__(self, action_config, stable_steer=False):
+    def __init__(self, action_config=None, stable_steer=False):
         super().__init__(action_config, stable_steer)
 
     def __call__(self, **kwargs):

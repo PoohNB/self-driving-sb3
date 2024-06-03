@@ -47,12 +47,14 @@ class SegVaeObserver():
     """
 
 
-    def __init__(self,
+    def __init__(self,                
+                seg_model,
                 vae_encoder,
-                seg_model,):
+                vae_decoder=None):
         
         self.seg = seg_model
         self.vae_encoder = vae_encoder
+        self.vae_decoder = vae_decoder
 
     def gym_obs(self):
 
@@ -68,11 +70,20 @@ class SegVaeObserver():
 
     def get_latent(self,imgs):
 
-        pred_segs = self.seg(imgs)
-        latents = self.vae_encoder(pred_segs)
-        cat_latent = latents.flatten().cpu().numpy()
+        self.pred_segs = self.seg(imgs)
+        self.latents = self.vae_encoder(self.pred_segs)
+        cat_latent = self.latents.flatten().cpu().numpy()
 
         return cat_latent
+    
+    def get_seg_result(self):
+        return self.pred_segs
+    
+    def get_reconstructed(self):
+        if self.vae_decoder is None:
+            raise Exception("No vae decoder apply")
+        return self.vae_decoder(self.latents)
+    
 
 
 class SegVaeActHistObserver(SegVaeObserver):
@@ -81,15 +92,18 @@ class SegVaeActHistObserver(SegVaeObserver):
 
     """
 
-    def __init__(self,
-                 vae_encoder,
+    def __init__(self,                 
                  seg_model,
+                 vae_encoder,
                  latent_space,
                  hist_len,
                  act_num=2,
-                 skip_frame=0):
+                 skip_frame=0,
+                vae_decoder=None):
         
-        super().__init__(vae_encoder,seg_model)
+        super().__init__(seg_model=seg_model,
+                         vae_encoder=vae_encoder,
+                         vae_decoder=vae_decoder)
 
         self.latent_space = latent_space
         self.skip_frame = skip_frame
@@ -122,7 +136,7 @@ class SegVaeActHistObserver(SegVaeObserver):
         
     def step(self,**arg):
 
-        imgs = arg["img"]
+        imgs = arg["imgs"]
         act = arg["act"]
         
         cat_latent = self.get_latent(imgs)
@@ -130,6 +144,7 @@ class SegVaeActHistObserver(SegVaeObserver):
         self.history_state.append(observation)
 
         return self.get_state()
+
     
 
 class SegVaeActObserver(SegVaeObserver):
@@ -142,9 +157,12 @@ class SegVaeActObserver(SegVaeObserver):
                  vae_encoder,
                  seg_model,
                  latent_space,
-                 act_num=2):
+                 act_num=2,
+                 vae_decoder=None):
         
-        super().__init__(vae_encoder,seg_model)
+        super().__init__(seg_model=seg_model,
+                         vae_encoder=vae_encoder,
+                         vae_decoder=vae_decoder)
 
         self.latent_space = latent_space
         self.act_num = act_num
@@ -168,7 +186,7 @@ class SegVaeActObserver(SegVaeObserver):
         
     def step(self,**arg):
 
-        imgs = arg["img"]
+        imgs = arg["imgs"]
         act = arg["act"]
         
         cat_latent = self.get_latent(imgs)

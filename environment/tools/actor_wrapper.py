@@ -11,20 +11,27 @@ from carla import ColorConverter as cc
 import time
 import random
 from typing import List
+import weakref
+import math
 
 class CarlaActorBase:
     def __init__(self,
-                  world,
+                  wrapped_world,
                   actor,
-                  tag=None):
+                  tag="unknown"):
         
         self.actor = actor
         self.destroyed = False
         self.tag = tag
+        self.wrapped_world = wrapped_world
+        self.append_to_world(self.wrapped_world,self.tag)
+
+    def append_to_world(self,world,tag):
         if tag =="obs":
-            world.append_observer(self.actor)
+            world.append_observer(self)
         else:
-            world.append(self.actor)
+            world.append(self)
+        print(f"initialize {tag} actor")
 
     def destroy(self):
         if self.destroyed:
@@ -33,6 +40,12 @@ class CarlaActorBase:
             print("Destroying ", self, "...")
             self.actor.destroy()
             self.destroyed = True
+
+            if self in self.wrapped_world.actor_list:
+                self.wrapped_world.actor_list.remove(self)
+
+            if self in self.wrapped_world.observer_list:
+                self.wrapped_world.observer_list.remove(self)
 
     def get_carla_actor(self):
         return self.actor
@@ -50,22 +63,36 @@ class CameraBase(CarlaActorBase):
     def __init__(self,
                  wrapped_world,
                  wrapped_veh,
-                 cam_config):
+                 cam_config,
+                 turbulence = False):
         
+        # =============================================
+        ## init param from super class manually
+        # self.actor = actor
+        # self.destroyed = False
+        # self.tag = tag
+        # self.wrapped_world = wrapped_world
+        # =============================================
+        
+        self.tag = cam_config['tag']
+        self.turb = turbulence
         self.world = wrapped_world.get_carla_world()
+        self.wrapped_world = wrapped_world
         self.car = wrapped_veh.get_carla_actor()
         self.blueprints = self.world.get_blueprint_library()
         self.cam_config = cam_config
         self.bp_cam = self._setting_camera(cam_config)
         self.create(cam_config=cam_config)
 
-        super().__init__(wrapped_world,self.cam,cam_config["tag"])
 
     def create(self,cam_config):
-        self.cam = self.world.spawn_actor(self.bp_cam, carla.Transform(carla.Location(*cam_config['Location']), carla.Rotation(*cam_config['Rotation'])), 
+        self.actor = self.world.spawn_actor(self.bp_cam, carla.Transform(carla.Location(*cam_config['Location']), carla.Rotation(*cam_config['Rotation'])), 
                                      attach_to=self.car,attachment_type=cam_config['AttachmentType'])
-        self.cam.listen(lambda data : self.process(data))
+        weak_self = weakref.ref(self)
+        self.actor.listen(lambda data : self.process(weak_self,data))
         self.destroyed = False
+        self.append_to_world(self.wrapped_world,self.cam_config['tag'])
+        
 
     def reset(self):
         self.cam_tmp =None
@@ -91,12 +118,12 @@ class CameraBase(CarlaActorBase):
         image = self.cam_tmp.copy()
         self.cam_tmp = None
 
-        if self.cam_config['apply_turbulence']:
+        if self.turb:
             image = self.apply_turbulence(image)
 
         return image
     
-
+    @staticmethod
     def apply_turbulence(image):
         rows, cols = image.shape[:2]
         
@@ -116,7 +143,10 @@ class CameraBase(CarlaActorBase):
         return transformed_image
 
 
-    def process(self,data):
+    def process(self,weak_self,data):
+        self_ref = weak_self()
+        if not self_ref:
+            return
 
         raise NotImplementedError("Method 'process' must be implemented in subclasses")
     
@@ -126,18 +156,23 @@ class RGBCamera(CameraBase):
     def __init__(self,
                  world,
                  car,
-                 cam_config):
+                 cam_config,
+                 turbulence=False):
         
         assert cam_config['type'] == 'sensor.camera.rgb'
         
         super().__init__(world,
                          car,
-                         cam_config)
+                         cam_config,
+                         turbulence)
         
-    def process(self, data):
+    def process(self,weak_self,data):
+        self_ref = weak_self()
+        if not self_ref:
+            return
         img = np.array(data.raw_data)
-        img = img.reshape((self.cam_config['attribute']['image_size_y'], self.cam_config['attribute']['image_size_x'], 4))
-        self.cam_tmp = img[:, :, :3][:, :, ::-1].astype(np.uint8)#[:, :, ::-1]
+        img = img.reshape((self_ref.cam_config['attribute']['image_size_y'], self_ref.cam_config['attribute']['image_size_x'], 4))
+        self_ref.cam_tmp = img[:, :, :3][:, :, ::-1].astype(np.uint8)#[:, :, ::-1]
 
 #=====
 
@@ -158,7 +193,8 @@ class SegCamera(CameraBase):
                  world,
                  car,
                  cam_config,
-                 palette = custom_palette):
+                 palette = custom_palette,
+                 turbulence=False):
         
         assert cam_config['type'] == 'sensor.camera.semantic_segmentation'
         
@@ -166,14 +202,18 @@ class SegCamera(CameraBase):
         
         super().__init__(world,
                          car,
-                         cam_config)
+                         cam_config,
+                         turbulence)
         
-    def process(self, data):
+    def process(self,weak_self,data):
+        self_ref = weak_self()
+        if not self_ref:
+            return
 
-        if self.palette == "CityScapesPalette":
-            self.process_CityScapesPalette(data)
+        if self_ref.palette == "CityScapesPalette":
+            self_ref.process_CityScapesPalette(data)
         else:
-            self.process_seg(data)
+            self_ref.process_seg(data)
     
     def process_seg(self, data):
         
@@ -206,7 +246,6 @@ class SpectatorCamera(RGBCamera):
                  cam_config):
         
         car = wrapped_veh.get_carla_actor()
-        
         Attachment = carla.AttachmentType
         bound_x = 0.5 + car.bounding_box.extent.x
         bound_y = 0.5 + car.bounding_box.extent.y
@@ -234,6 +273,7 @@ class SpectatorCamera(RGBCamera):
         self.spectator_index=(self.spectator_index+1)%len(self.perceptions)
         self.destroy()
         self.create(self.perceptions[self.spectator_index])
+ 
 
         
 class CollisionSensor(CarlaActorBase):
@@ -244,61 +284,98 @@ class CollisionSensor(CarlaActorBase):
         blueprints = self.world.get_blueprint_library()
         self.bp_colli = blueprints.find('sensor.other.collision')
         self.colli_sensor = self.world.spawn_actor(self.bp_colli, carla.Transform(), attach_to=self.car)
-        self.colli_sensor.listen(self.collision_callback)
-        self.event=None
+        weak_self = weakref.ref(self)
+        self.colli_sensor.listen(lambda event: self.collision_callback(weak_self, event))
         super().__init__(wrapped_world,self.colli_sensor,tag="colli")
 
     def reset(self):
         self.collision = False
+        self.event=None
 
-    def collision_callback(self, event):
-        if event.other_actor.semantic_tags[0] not in [1, 24]:
-            self.collision = True
-        self.event = event
+    def collision_callback(self,weak_self,event):
 
-class Vehicle(CarlaActorBase):
-
-    def __init__(self,wrapped_world,vehicle_name,spawn_points):
+        self_ref = weak_self()
+        if not self_ref:
+            return
         
+        if event.other_actor.semantic_tags[0] not in [1, 24]:
+            self_ref.collision = True
+        self_ref.event = event
+
+class VehicleActor(CarlaActorBase):
+
+    def __init__(self,
+                 wrapped_world,
+                 vehicle_name,
+                 spawn_points,
+                 startpoint=0,
+                 change_points_ep = 100,
+                 mode = "static"):
+        
+        self.st = startpoint
         self.world = wrapped_world.get_carla_world()
-        self.spawn_points = spawn_points
+        self.spawn_points = [carla.Transform(carla.Location(*sp['Location']), carla.Rotation(*sp['Rotation'])) for sp in spawn_points]
         blueprints = self.world.get_blueprint_library()
         bp_car = blueprints.filter(vehicle_name)[0]   
-        self.car = self.world.spawn_actor(bp_car, self.spawn_points[0])
+        self.veh = self.world.spawn_actor(bp_car, self.spawn_points[0])
         self.episode = 0
+        self.change_ep = change_points_ep
+        self.mode = mode
+        self.traveled_dist = 0
 
-        super().__init__(wrapped_world,self.car,tag='car')
+        super().__init__(wrapped_world,self.veh,tag='car')
+
+    def apply_mode(self,mode):
+        if mode in ["static","random","change_point"]:
+            self.mode = mode
+        else:
+            print(f"no mode {mode} avilable")
 
     def get_carla_actor(self):
 
-        return self.car
+        return self.veh
     
-    def apply_control(self,control):
-        self.car.apply_control(control)
+    def calculate_distance(self):
+        """Calculate Euclidean distance between two positions."""
+        car_pos = self.veh.get_location()
+        self.cur_pos = (car_pos.x,car_pos.y)
+        dist = math.sqrt((self.prev_pos[0] - self.cur_pos[0])**2 + (self.prev_pos[1] - self.cur_pos[1])**2)
+        self.traveled_dist+=dist
+        self.prev_pos = self.cur_pos
 
+        return self.traveled_dist
+    
     def reset(self):
         """
         teleport the car 
         """
         self.episode+=1
+        self.traveled_dist = 0
+        car_pos = self.veh.get_location()
+        self.prev_pos = (car_pos.x,car_pos.y)
+
         self.select_point()
-        self.car.set_simulate_physics(False)
-        self.car.set_transform(self.spawn_points[self.st])
+        self.veh.set_simulate_physics(False)
+        self.veh.set_transform(self.spawn_points[self.st])
         time.sleep(0.2)
-        self.car.set_simulate_physics(True)
+        self.veh.set_simulate_physics(True)
 
     def select_point(self):
         """
         if it reach another points or reach change points ep it will change start point to the next point
-        """
-        if self.ep % self.change_ep ==0:
-            self.current_point=self.current_point+1
-        elif self.reach_next_point:
-            self.current_point=self.current_point+1
-            self.reach_next_point = False
 
-        self.st = self.current_point%len(self.spawn_points)
-        self.des = (self.current_point+1)%len(self.spawn_points)
+        """
+        if self.mode == "static":
+            pass
+
+        elif self.mode == "change_point":
+            if self.episode % self.change_ep ==0:
+                self.current_point=self.current_point+1
+            self.st = self.current_point%len(self.spawn_points)
+
+        elif self.mode == "random":
+            self.st = random.choice(range(len(self.spawn_points)))
+
 
 
 class ManageActors:
@@ -315,7 +392,7 @@ class ManageActors:
         self.observer_list.append(actor)
         self.actor_list.append(actor)
 
-    def get_obs(self):
+    def get_all_obs(self):
 
         obs = []
         
@@ -330,30 +407,31 @@ class ManageActors:
 
     def reset_actors(self):
 
-        for actor in list(self.actor_list):
+        for actor in self.actor_list:
             actor.reset()
 
     def destroy_actors(self):
         print("Destroying all spawned actors")
         for actor in list(self.actor_list):
-            self.actor_list.remove(actor)
-            if actor in self.observer_list:
-                self.observer_list.remove(actor)
             actor.destroy()
+
 
 class World(ManageActors):
 
     def __init__(self,
                  host,
                  port,
-                 delta_frame):
+                 delta_frame,
+                 sync_mode=True):
         
         self.delta_frame = delta_frame
         self.client = carla.Client(host, port)
         self.client.set_timeout(120)
         self.world = self.client.get_world()  
+        self.map = self.world.get_map()
         # setting world ============================================================================
-        self.set_synchronous()
+        if sync_mode:
+            self.set_synchronous()
         # set weather =============================================================================
         self.world.set_weather(carla.WeatherParameters.ClearNoon)
 
@@ -389,6 +467,7 @@ class World(ManageActors):
 
     def get_carla_world(self):
         return self.world
+    
 
     def __getattr__(self, name):
         """Relay missing methods to underlying carla object"""

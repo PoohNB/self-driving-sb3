@@ -1,35 +1,23 @@
-from environment.tools.scene_designer import locate_obstacle, create_point
-from config.env.env_config import env_config
+
+from config.env.env_config import ait_football_env
 from config.env.camera import front_cam,spectator_cam
-from utils.tools import carla_point
 from environment.tools.action_wraper import OriginAction
-from environment.tools.rewarder import reward_dummy
-from environment.tools.rewarder import reward_from_map
 from environment.tools.hud import get_actor_display_name
 import carla
-import cv2
-from collections import deque
 import random
 import numpy as np
-import copy
-from scipy import ndimage
 import gym
 from gym import spaces
 import random
-import pygame
-from pygame.locals import K_ESCAPE,K_TAB
-import torch
 # from environment.tools.hud import HUD
-import warnings
-import time
-from carla import ColorConverter as cc
 from environment.tools.actor_wrapper import *
 from environment.tools.controllor import PygameControllor
 from environment.tools.scene_designer import *
+import weakref
 
-sensor_transforms = {
-    "spectator": carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15)),
-    "dashboard": carla.Transform(carla.Location(x=1.6, z=1.7)),}
+# sensor_transforms = {
+#     "spectator": carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15)),
+#     "dashboard": carla.Transform(carla.Location(x=1.6, z=1.7)),}
 
 class CarlaImageEnv(gym.Env):
 
@@ -55,8 +43,9 @@ class CarlaImageEnv(gym.Env):
                  observer,
                  rewarder,   
                  car_spawn,
+                 spawn_mode="static",
                  action_wrapper = OriginAction(), 
-                 env_config =env_config,
+                 env_config =ait_football_env,
                  cam_config_list=[front_cam], 
                  discrete_actions = None,
                  activate_render = False,
@@ -79,6 +68,7 @@ class CarlaImageEnv(gym.Env):
         self.env_config = env_config
 
         self.manual_end = False
+        self.episode_idx =0
 
         # set gym space ==============================================================================
 
@@ -95,9 +85,13 @@ class CarlaImageEnv(gym.Env):
         self.world = World(env_config['host'],env_config['port'],env_config['delta_frame'])
 
         # create actor
-        self.car = Vehicle(self.world,
+        self.car = VehicleActor(self.world,
                           env_config['vehicle'],
                           spawn_points=car_spawn)
+        
+        self.car.apply_mode(spawn_mode)
+        
+        self.rewarder.apply_car(self.car)
         
         # dash cam ===
         self.dcam = []
@@ -109,34 +103,40 @@ class CarlaImageEnv(gym.Env):
 
         # Collision sensor ===
         self.colli_sensor = CollisionSensor(self.world,self.car)
+        self.rewarder.apply_collision_sensor(self.colli_sensor)
 
         if self.activate_render:
             # cam for save video and visualize ===
             self.spectator = SpectatorCamera(self.world,self.car,spectator_cam)
             # pygame display ==
-            self.pygamectrl = PygameControllor(spectator_cam,self)                                                                                                                                                              
+            weak_self = weakref.ref(self)
+            self.pygamectrl = PygameControllor(spectator_cam,weak_self)                                                                                                                                                              
    
     def reset(self):
 
         if self.manual_end:
             raise Exception("CarlaEnv.reset() called after the environment was closed.")
         # initial basic param ===============================================================
+        self.episode_idx+=1
         self.curr_steer_position = 0
         self.count_in_obs = 0 # Step inside obstacle range
         self.step_count = 0
+        self.total_reward = 0
         # reset actor   
+        self.rewarder.reset()
         self.world.reset_actors() 
         # spawn obstacle===
         self.world.tick()
         # get the initial observation ========================================================
-        self.list_images = self.world.get_obs()
+        self.list_images = self.world.get_all_obs()
         obs = self.observer.reset(self.list_images)
 
         return obs   
 
     def step(self, action):
 
-        # set obstable movement===
+        # update param 
+        self.step_count+=1
         # action = copy.deepcopy(action)
         if self.manual_end:
             raise Exception("CarlaEnv.step() called after the environment was closed." +
@@ -159,35 +159,59 @@ class CarlaImageEnv(gym.Env):
         self.car.apply_control(control)
 
         # get image from camera
-        self.list_images = self.world.get_obs()
+        self.list_images = self.world.get_all_obs()
         obs = self.observer.step(imgs = self.list_images,act=action)
+
+            
+        # get reward
+        self.reward = self.rewarder.reward(being_obstructed=False)
+        self.total_reward+=self.reward
+
+        # basic termination -> colision or reach max step or out of the rount more than n step 
+        done = self.colli_sensor.collision or self.step_count > self.max_step or self.manual_end #or self.rewarder.get_terminate()
+
+        # get info
+        info = {}
 
         if self.activate_render:
             self.render()
             self.pygamectrl.receive_key()
-            
-        # get reward
-        reward = self.rewarder.reward(self.car)
-
-        # basic termination -> colision or reach max step or out of the rount more than n step 
-        self.step_count+=1
-        done = self.collision or self.step_count > self.max_step or self.manual_end
-
-        # get info
-        info = {}
         
-        return  obs,reward,done,info
+        return  obs,self.reward,done,info
      
 
     def render(self):
 
         self.spec_image = self.spectator.get_obs()
 
-        if self.show_obs:
-            pass
+        # obs_list = {}
+        # if self.env_config['show_raw']:
+        #     obs_list['raw']=self.list_images
+            
+        # if self.env_config['show_seg']:
+        #     obs_list['seg']= self.observer.get_seg_result()
 
-        self.pygamectrl.hud.notification("Collision with {}".format(get_actor_display_name(self.colli_sensor.event.other_actor)))
-        self.pygamectrl.render(self.spec_image)   
+        # if self.env_config['show_reconstructed']:
+        #     obs_list['reconst'] = self.observer.get_reconstructed()
+    
+        # self.attach_obs(obs_list)
+
+        extra_info=[
+            "Episode {}".format(self.episode_idx),
+            "Step: {}".format(self.step_count),
+            "Reward: % 19.2f" % self.reward,
+            "",
+            "Distance traveled: % 7d m" % self.car.calculate_distance(),
+            "speed:      % 7.2f km/h" % (self.car.get_velocity().length()),
+            "Total reward:        % 7.2f" % self.total_reward,
+        ]
+        if self.colli_sensor.event is not None:
+            self.pygamectrl.hud.notification("Collision with {}".format(get_actor_display_name(self.colli_sensor.event.other_actor)))
+            self.colli_sensor.event=None
+        self.pygamectrl.render(self.spec_image,extra_info) 
+
+    # def attach_obs(self,obs_list):
+    #     self.spec_image
 
     def close(self):
         if self.activate_render:

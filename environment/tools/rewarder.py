@@ -12,32 +12,39 @@ class reward_dummy():
 
         return 0
     
-routepath = os.path.join(os.path.dirname(__file__),"rewardmask/ait_football.png")
 
-import cv2
-import numpy as np
 
-routepath = "/mnt/data/image.png"
+class RewardFromMap:
 
-class reward_from_map:
-
-    def __init__(self, carla_car, route_path=routepath, scale=8.596200822454035, ref_point=(4005, 6864)):
+    def __init__(self, route_config,loss_limit = 10):
         # reference point is position 0,0 in carla
         # scale is meter/pixel
-        self.car = carla_car
-        self.route = cv2.imread(route_path, cv2.IMREAD_COLOR)
-        self.m = scale
-        self.ref_point = ref_point
+        self.route = cv2.imread(route_config['mask_path'], cv2.IMREAD_COLOR)
+        self.m = route_config['scale']
+        self.ref_point = route_config['ref_point']
         self.previous_steer = 0
+        self.terminate = False
+        self.colli = None
+        self.loss_limit = loss_limit
+
+    def apply_car(self,carla_car):
+        self.car = carla_car
+
+    def reset(self):
+        self.loss_count = 0
+        self.terminate = False
 
     def get_car_position_on_map(self, car_position):
         # Convert car position from CARLA coordinates to image coordinates
         x, y = car_position
-        img_x = int((x - self.ref_point[0]) / self.m)
-        img_y = int((y - self.ref_point[1]) / self.m)
+        img_x = int(self.ref_point[1] +x * self.m)
+        img_y = int(self.ref_point[0] +y * self.m)
         return img_x, img_y
+    
+    def apply_collision_sensor(self,sensor):
+        self.colli = sensor
 
-    def reward(self, collision, being_obstructed=False):
+    def reward(self, being_obstructed=False):
         """
         reward
         - car on the blue mask = high reward depend on speed
@@ -51,8 +58,12 @@ class reward_from_map:
         other
         - stay still (velocity very low) will get punish but car being obstructed it will get reward 
         """
+        if self.colli is None:
+            raise Exception("not apply collision sensor yet")
+
         reward = 0
         car_position = self.car.get_location()
+        # yaw = self.car.get_transform().rotation.yaw
         car_speed = self.car.get_velocity().length()
         car_angle_change = abs(self.car.get_control().steer - self.previous_steer)
         self.previous_steer = self.car.get_control().steer
@@ -64,92 +75,42 @@ class reward_from_map:
             
             # Blue area reward
             if (pixel_value == [255, 0, 0]).all():
-                reward += car_speed * 10
+                reward += car_speed * 1
 
             # Red area penalty
             elif (pixel_value == [0, 0, 255]).all():
-                reward -= car_speed * 20
+                reward -= car_speed * 2
 
         # Penalty for collision
-        if collision:
-            reward -= 100
+        if self.colli.collision:
+            reward -= 24
+            self.terminate = True
 
-        # Penalty for high angle change
-        if car_angle_change > 0.1:
-            reward -= car_angle_change * 10
+        # Penalty for angle change
+        reward -= car_angle_change * 1
 
         # Penalty for low speed unless obstructed
-        if car_speed < 1.0 and not being_obstructed:
-            reward -= 10
-        elif car_speed < 1.0 and being_obstructed:
-            reward += 10
+        if car_speed < 0.1 and not being_obstructed:
+            reward -= 8
+        elif car_speed < 0.1 and being_obstructed:
+            reward += 8
+
+        if reward <= 0 :
+            self.loss_count+=1
+        else:
+            self.loss_count=0
+        
+        if self.loss_count > self.loss_limit:
+            self.terminate = True
 
         return reward
-
-
-class reward_from_map():
-
-    def __init__(self,
-                 carla_car,
-                 route_path=routepath,
-                 scale=8.596200822454035, 
-                 ref_point=(4005, 6864)):
-        
-        # reference point is position 0,0 in carla
-        # scale is meter/pixel
-
-        self.car=carla_car
-        self.route = cv2.imread(route_path)
-        self.m = scale
-        self.ref_point = ref_point
-        self.previous_steer = 0
-
-
-    def reward(self,collision,being_obstructed=False):
-
-        """
-        reward
-        - car on the blue mask = high reward depend on speed
-        
-        penalty
-        - car angle change too often in different direction (shanking) = low penalty depend on angle change
-        - car on red mask  = high penalty depend on speed
-        - collision = high penalty
-        - angle of car direction and road = very low penalty (optional) 
-
-        other
-        - stay still (velocity very low) will get punish but car being obstructed it will get reward 
-
-        car position =>  (x,y)
-        angle => yaw
-
-        """
-        rew = 0
-
-        curr_pos = self.car.get_transform()
-        x = round((curr_pos.location.x * self.m) + self.ref_point[1])
-        y = round((curr_pos.location.y * self.m) + self.ref_point[0])
-
-
-        self.route
-
-        
-        return rew
     
-    def cart2pol(self, x, y):
-        rho = np.sqrt(x**2 + y**2)
-        phi = np.arctan2(y, x)
-        return rho, phi/np.pi*180
+    def get_terminate(self):
 
-    def pol2cart(self, rho, phi):
-        phi = phi/180*np.pi
-        x = rho * np.cos(phi)
-        y = rho * np.sin(phi)
-        return x, y
-    
-    def reset(self):
-        pass
-    
+        return self.terminate
+
+
+
 
 
     # def reward_pos(self):
