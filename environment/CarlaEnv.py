@@ -14,6 +14,7 @@ from environment.tools.actor_wrapper import *
 from environment.tools.controllor import PygameControllor
 from environment.tools.scene_designer import *
 import weakref
+import cv2
 
 # sensor_transforms = {
 #     "spectator": carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15)),
@@ -49,6 +50,9 @@ class CarlaImageEnv(gym.Env):
                  cam_config_list=[front_cam], 
                  discrete_actions = None,
                  activate_render = False,
+                 render_raw = False,
+                 render_seg = False,
+                 render_reconst=False,
                  seed=2024):
         
         if discrete_actions is not None and not isinstance(discrete_actions,dict):
@@ -62,6 +66,9 @@ class CarlaImageEnv(gym.Env):
         self.rewarder = rewarder
         self.discrete_actions = discrete_actions
         self.activate_render = activate_render
+        self.render_raw = render_raw
+        self.render_seg = render_seg
+        self.render_reconst= render_reconst
 
         self.env_config = env_config
         self.max_step = env_config['max_step']
@@ -136,6 +143,7 @@ class CarlaImageEnv(gym.Env):
     def step(self, action):
 
         # update param 
+    
         self.step_count+=1
         # action = copy.deepcopy(action)
         if self.manual_end:
@@ -161,9 +169,9 @@ class CarlaImageEnv(gym.Env):
         # get image from camera
         self.list_images = self.world.get_all_obs()
         obs = self.observer.step(imgs = self.list_images,act=action)
-
             
         # get reward
+        
         self.reward = self.rewarder.reward(being_obstructed=False)
         self.total_reward+=self.reward
 
@@ -184,17 +192,50 @@ class CarlaImageEnv(gym.Env):
 
         self.spec_image = self.spectator.get_obs()
 
-        # obs_list = {}
-        # if self.env_config['show_raw']:
-        #     obs_list['raw']=self.list_images
+        obs_list = []
+        if self.render_raw:
+            obs_list.append(self.list_images)
             
-        # if self.env_config['show_seg']:
-        #     obs_list['seg']= self.observer.get_seg_result()
+        if self.render_seg:
+            obs_list.append(self.observer.get_seg_results())
 
-        # if self.env_config['show_reconstructed']:
-        #     obs_list['reconst'] = self.observer.get_reconstructed()
-    
-        # self.attach_obs(obs_list)
+        if self.render_reconst:
+            reconstructed = self.observer.get_reconstructed()
+            if reconstructed is None:
+                self.render_reconst = False
+                print("there no decoder in observer object")
+            else:
+                obs_list.append(reconstructed)
+
+        # Resize and arrange images
+        spec_height, spec_width,_ = self.spec_image.shape
+        target_height = spec_height // 6
+
+        x_offset = spec_width
+
+        for img_set in obs_list:
+            resized_images = []
+            total_height = 0
+
+            # Resize images and calculate the total height
+            for img in img_set:
+                height, width, _ = img.shape
+                scaling_factor = target_height / height
+                new_width = int(width * scaling_factor)
+                resized_img = cv2.resize(img, (new_width, target_height))
+                resized_images.append(resized_img)
+                total_height += target_height
+
+            # Calculate the x offset for the current list
+            x_offset -= new_width
+
+            # Place images in the main image
+            y_offset = 0
+            for resized_img in resized_images:
+                self.spec_image[y_offset:y_offset + target_height, x_offset:x_offset + new_width] = resized_img
+                y_offset += target_height
+
+            
 
         extra_info=[
             "Episode {}".format(self.episode_idx),

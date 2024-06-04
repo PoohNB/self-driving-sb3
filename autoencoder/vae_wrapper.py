@@ -1,7 +1,7 @@
 from autoencoder.CNNVae import Encoder,Decoder
 import torch
 from torch import nn
-import os
+import cv2
 import time
 from torchvision import transforms
 import numpy as np
@@ -61,7 +61,7 @@ class VencoderWrapper():
         return latent
 
 
-class decoderWrapper():
+class DecoderWrapper():
 
     """
     model_path: pth path
@@ -89,12 +89,15 @@ class decoderWrapper():
         print(f"inference time :{(time.time()-st)/test_times:.6f}")
  
         
-    def __call__(self,latents):
+    def __call__(self,latents,post_process=True):
         
  
         with torch.no_grad():
 
             images = self.model(latents)
+        
+        if post_process:
+            images = [cv2.cvtColor((img.squeeze(0).numpy()*255).astype(np.uint8),cv2.COLOR_GRAY2RGB) for img in images.cpu()]
 
         return images
 

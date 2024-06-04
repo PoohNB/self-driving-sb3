@@ -76,12 +76,12 @@ class SegVaeObserver():
 
         return cat_latent
     
-    def get_seg_result(self):
-        return self.pred_segs
+    def get_seg_results(self):
+        return self.seg.get_seg_images(self.pred_segs)
     
     def get_reconstructed(self):
         if self.vae_decoder is None:
-            raise Exception("No vae decoder apply")
+            return
         return self.vae_decoder(self.latents)
     
 

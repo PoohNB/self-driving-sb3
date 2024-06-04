@@ -152,6 +152,9 @@ class CameraBase(CarlaActorBase):
     
 
 class RGBCamera(CameraBase):
+    """
+    give rgb image
+    """
 
     def __init__(self,
                  world,
@@ -172,7 +175,7 @@ class RGBCamera(CameraBase):
             return
         img = np.array(data.raw_data)
         img = img.reshape((self_ref.cam_config['attribute']['image_size_y'], self_ref.cam_config['attribute']['image_size_x'], 4))
-        self_ref.cam_tmp = img[:, :, :3][:, :, ::-1].astype(np.uint8)#[:, :, ::-1]
+        self_ref.cam_tmp = img[:, :, :3][:, :, ::-1].astype(np.uint8)#BGRA2RGB
 
 #=====
 
