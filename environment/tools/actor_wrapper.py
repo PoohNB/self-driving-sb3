@@ -256,8 +256,8 @@ class SpectatorCamera(RGBCamera):
 
         # ((x,y,z),(pitch,yaw,roll),attachment)
         self.perceptions = [
-                dict(Location=(+1.9*bound_x, +1.0*bound_y, 1.2*bound_z),Rotation=(0,0,0) , AttachmentType=Attachment.SpringArmGhost),
                 dict(Location=(-2.0*bound_x, +0.0*bound_y, 2.0*bound_z), Rotation=(8.0,0,0), AttachmentType=Attachment.SpringArmGhost),
+                dict(Location=(+1.9*bound_x, +1.0*bound_y, 1.2*bound_z),Rotation=(0,0,0) , AttachmentType=Attachment.SpringArmGhost),
                 dict(Location=(-2.8*bound_x, +0.0*bound_y, 4.6*bound_z), Rotation=(6.0,0,0), AttachmentType=Attachment.SpringArmGhost),
                 dict(Location=(-1.0, -1.0*bound_y, 0.4*bound_z),Rotation=(0,0,0) ,AttachmentType=Attachment.Rigid),
                 dict(Location=(0.0, 0.0, +6*bound_z), Rotation=(-90.0,0,0),AttachmentType=Attachment.Rigid),
@@ -340,11 +340,15 @@ class VehicleActor(CarlaActorBase):
     
     def calculate_distance(self):
         """Calculate Euclidean distance between two positions."""
-        car_pos = self.veh.get_location()
-        self.cur_pos = (car_pos.x,car_pos.y)
-        dist = math.sqrt((self.prev_pos[0] - self.cur_pos[0])**2 + (self.prev_pos[1] - self.cur_pos[1])**2)
-        self.traveled_dist+=dist
-        self.prev_pos = self.cur_pos
+        if self.prev_pos is not None:
+            car_pos = self.veh.get_location()
+            self.cur_pos = (car_pos.x,car_pos.y)
+            dist = math.sqrt((self.prev_pos[0] - self.cur_pos[0])**2 + (self.prev_pos[1] - self.cur_pos[1])**2)
+            self.traveled_dist+=dist
+            self.prev_pos = self.cur_pos
+        else:
+            car_pos = self.veh.get_location()
+            self.prev_pos = (car_pos.x,car_pos.y)
 
         return self.traveled_dist
     
@@ -354,8 +358,7 @@ class VehicleActor(CarlaActorBase):
         """
         self.episode+=1
         self.traveled_dist = 0
-        car_pos = self.veh.get_location()
-        self.prev_pos = (car_pos.x,car_pos.y)
+        self.prev_pos = None
 
         self.select_point()
         self.veh.set_simulate_physics(False)
@@ -425,6 +428,7 @@ class World(ManageActors):
                  host,
                  port,
                  delta_frame,
+                 default_weather=carla.WeatherParameters.ClearSunset,
                  sync_mode=True):
         
         self.delta_frame = delta_frame
@@ -435,9 +439,9 @@ class World(ManageActors):
         # setting world ============================================================================
         if sync_mode:
             self.set_synchronous()
-        # set weather =============================================================================
-        self.world.set_weather(carla.WeatherParameters.ClearNoon)
 
+        self.world.set_weather(default_weather)
+        
         super().__init__()
 
     def set_synchronous(self):
@@ -466,7 +470,33 @@ class World(ManageActors):
         self.set_asynchornous()
 
     def random_wather(self):
-        pass
+
+        # carla.WeatherParameters.ClearNoon,
+        # carla.WeatherParameters.ClearSunset,
+        # carla.WeatherParameters.CloudyNoon,
+        # carla.WeatherParameters.CloudySunset,
+        # carla.WeatherParameters.WetNoon,
+        # carla.WeatherParameters.WetSunset,
+        # carla.WeatherParameters.MidRainyNoon,
+        # carla.WeatherParameters.MidRainSunset,
+        # carla.WeatherParameters.WetCloudyNoon,
+        # carla.WeatherParameters.WetCloudySunset,
+        # carla.WeatherParameters.HardRainNoon,
+        # carla.WeatherParameters.HardRainSunset,
+        # carla.WeatherParameters.SoftRainNoon,
+        # carla.WeatherParameters.SoftRainSunset
+
+        weather_presets = [
+            carla.WeatherParameters.ClearNoon,
+            carla.WeatherParameters.ClearSunset,
+            carla.WeatherParameters.CloudyNoon,
+            carla.WeatherParameters.CloudySunset,
+            carla.WeatherParameters.WetNoon,
+            carla.WeatherParameters.WetSunset,
+        ]
+
+        chosen_weather = random.choice(weather_presets)
+        self.world.set_weather(chosen_weather)
 
     def get_carla_world(self):
         return self.world

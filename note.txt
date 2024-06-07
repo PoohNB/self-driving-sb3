@@ -3,6 +3,8 @@ export PYTHONPATH=$PWD:$PYTHONPATH
 git reset --soft HEAD~1
 git push --force
 
+
+
 /home/lpr/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib
 python3 -m pip install tensorrt-*-cp38-none-linux_x86_64.whl
 python3 -m pip install onnx_graphsurgeon-0.3.12-py2.py3-none-any.whl

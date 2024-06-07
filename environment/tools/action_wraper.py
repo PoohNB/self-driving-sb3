@@ -26,7 +26,7 @@ class ActionWrapper:
 
         steer = int(((steer + 1) / 2) * 255)
         throttle = int(throttle * 255)
-        brake = int(brake * 255)
+        brake = 255 if brake > 127 else 0
 
         if steer > 0 and throttle > 0:
             throttle = 0
@@ -47,7 +47,7 @@ class OriginAction(ActionWrapper):
                 action[0] = self.previous_steer
 
         self.previous_steer = action[0]
-        return float(action[0]), float(action[1]), 0
+        return float(action[0]), float(action[1]), False
 
 
 class LimitAction(ActionWrapper):

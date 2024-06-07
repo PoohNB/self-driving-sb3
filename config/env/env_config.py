@@ -4,7 +4,7 @@ env_config = dict(host = 'localhost',
                   delta_frame=0.2,
                   check_reverse = 32)
 
-ait_football_env = dict(**env_config,max_step =2000,)
+ait_football_env = dict(**env_config,max_step =1000,)
 
 
 

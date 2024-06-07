@@ -1,0 +1,30 @@
+env - i change order to tick first then apply action to make it similar to real world (process then send action)
+rewarder - try terminate when stay still on sac, it make a lot of episodes should i remove it? - yes
+?terminate - i think terminated early will make the car not see failure experience and how to fix it /
+which sometime good if you want it to train fast but not efficent --> i found out it better to let agent suffer long enough too improve faster
+observer - i try use skipframe 1 history 8 -->
+
+*env - i will try change the control to ackermann control to more realistic
+*action wrapper - still not sure about stay still range the range but selected 0.
+*observer - the setting for proper or best lookback state is unknown and for new feature skip frame i don't know if it work 
+* action - i thinking about if it too hard for continous action should we use discrete instead like /
+forward high and low * (lelf,right high and low + middle) + stay still so we can get 11 action in total and this will make env can train with dqn/
+(but can't use with sac)
+* server - server occur error vulkan need to investigate more
+* env - have to add close command in case server down unexpected
+
+(P) semantic segmentation - it inevitdable to fail sometimes for unseen data, can agent still control after that?
+
+experiment
+sac1 - 
+sac2 - fix terminate too early (-reward abort)
+sac3 - remove motionless terminate
+sac4 - add skipframe 1
+sac5 - increase out of the road limit
+sac6 - from sac3 decrease out of road limit 
+
+todo 
+- add callback function
+- save parameter of each module 
+- scene design
+- discret action 11 

@@ -53,6 +53,8 @@ class CarlaImageEnv(gym.Env):
                  render_raw = False,
                  render_seg = False,
                  render_reconst=False,
+                 augment_image=False,
+                 rand_weather=False,                 
                  seed=2024):
         
         if discrete_actions is not None and not isinstance(discrete_actions,dict):
@@ -69,6 +71,7 @@ class CarlaImageEnv(gym.Env):
         self.render_raw = render_raw
         self.render_seg = render_seg
         self.render_reconst= render_reconst
+        self.rand_weather = rand_weather
 
         self.env_config = env_config
         self.max_step = env_config['max_step']
@@ -104,9 +107,9 @@ class CarlaImageEnv(gym.Env):
         self.dcam = []
         for cf in cam_config_list:
             if cf["type"] =="sensor.camera.rgb":
-                self.dcam.append(RGBCamera(self.world,self.car,cf))
+                self.dcam.append(RGBCamera(self.world,self.car,cf,augment_image))
             elif cf["type"] == "sensor.camera.semantic_segmentation":
-                self.dcam.append(SegCamera(self.world,self.car,cf))
+                self.dcam.append(SegCamera(self.world,self.car,cf,augment_image))
 
         # Collision sensor ===
         self.colli_sensor = CollisionSensor(self.world,self.car)
@@ -132,11 +135,14 @@ class CarlaImageEnv(gym.Env):
         # reset actor   
         self.rewarder.reset()
         self.world.reset_actors() 
+        if self.rand_weather:
+            self.world.random_wather()
         # spawn obstacle===
         self.world.tick()
         # get the initial observation ========================================================
         self.list_images = self.world.get_all_obs()
         obs = self.observer.reset(self.list_images)
+
 
         return obs   
 
@@ -150,7 +156,7 @@ class CarlaImageEnv(gym.Env):
             raise Exception("CarlaEnv.step() called after the environment was closed." +
                             "Check for info[\"closed\"] == True in the learning loop.")
 
-        if self.discrete_actions == None:
+        if self.discrete_actions is None:
             steer, throttle,brake = self.action_wraper(action=action)
         else:
             steer, throttle = self.discrete_actions[action]
@@ -170,16 +176,19 @@ class CarlaImageEnv(gym.Env):
         self.list_images = self.world.get_all_obs()
         obs = self.observer.step(imgs = self.list_images,act=action)
             
-        # get reward
-        
+        # get reward        
         self.reward = self.rewarder.reward(being_obstructed=False)
         self.total_reward+=self.reward
 
         # basic termination -> colision or reach max step or out of the rount more than n step 
-        done = self.colli_sensor.collision or self.step_count > self.max_step or self.manual_end #or self.rewarder.get_terminate()
+        done = self.colli_sensor.collision or self.step_count > self.max_step or self.manual_end or self.rewarder.get_terminate()
 
         # get info
-        info = {}
+        car_position = self.car.get_location()
+        info = {"step":self.step_count,
+                "location":(car_position.x,car_position.y),
+                "reward":self.reward,
+                "total reward":self.total_reward}
 
         if self.activate_render:
             self.render()
@@ -191,7 +200,7 @@ class CarlaImageEnv(gym.Env):
     def render(self):
 
         self.spec_image = self.spectator.get_obs()
-
+        
         obs_list = []
         if self.render_raw:
             obs_list.append(self.list_images)
@@ -235,15 +244,14 @@ class CarlaImageEnv(gym.Env):
                 self.spec_image[y_offset:y_offset + target_height, x_offset:x_offset + new_width] = resized_img
                 y_offset += target_height
 
-            
 
         extra_info=[
             "Episode {}".format(self.episode_idx),
             "Step: {}".format(self.step_count),
-            "Reward: % 19.2f" % self.reward,
             "",
             "Distance traveled: % 7d m" % self.car.calculate_distance(),
-            "speed:      % 7.2f km/h" % (self.car.get_velocity().length()),
+            "speed:      % 7.2f km/h" % (self.car.get_velocity().length()*3.6),
+            "Reward: % 19.2f" % self.reward,
             "Total reward:        % 7.2f" % self.total_reward,
         ]
         if self.colli_sensor.event is not None:
@@ -251,8 +259,6 @@ class CarlaImageEnv(gym.Env):
             self.colli_sensor.event=None
         self.pygamectrl.render(self.spec_image,extra_info) 
 
-    # def attach_obs(self,obs_list):
-    #     self.spec_image
 
     def close(self):
         if self.activate_render:

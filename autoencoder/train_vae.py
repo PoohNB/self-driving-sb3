@@ -10,7 +10,7 @@ import os
 
 config_path = 'config/vae.py'
 modelname = 'vae24'
-log_path = os.path.join("autoencoder/runs",modelname)
+log_path = os.path.join("runs/VAE",modelname)
 checkpoint_path = os.path.join("autoencoder/model",modelname)
 data_dir = 'autoencoder/dataset/'
 

@@ -19,7 +19,7 @@ class VencoderWrapper():
     """
     
     def __init__(self,model_path,latent_dims,custom_process=None):
-
+        print('===== Encoder =====')
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"using {self.device}")
 
@@ -68,7 +68,7 @@ class DecoderWrapper():
     """
     
     def __init__(self,model_path,latent_dims):
-
+        print('===== Decoder =====')
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"using {self.device}")
 

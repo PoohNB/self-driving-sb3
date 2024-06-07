@@ -30,6 +30,7 @@ class HFsegWrapper(SegmodelWrapper):
         if crop is not None:
             assert len(crop) == 2
 
+        print('===== Segmentation =====')
         self.device  = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print("using ",self.device)
 

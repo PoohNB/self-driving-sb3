@@ -1,40 +1,57 @@
 import cv2
 import numpy as np
 import os
+import json
 
-class reward_dummy():
+class RewardDummy:
 
     def __init__(self):
 
         pass
 
-    def reward(self,car):
+    def apply_car(self,carla_car):
+        pass
+
+    def apply_collision_sensor(self,sensor):
+        pass
+
+    def reward(self,car,being_obstructed):
 
         return 0
     
+    def get_terminate(self):
 
+        return False
+    
+    def reset(self):
+        pass
+    
 
 class RewardFromMap:
 
-    def __init__(self, route_config,loss_limit = 10):
+    def __init__(self, mask_path):
         # reference point is position 0,0 in carla
         # scale is meter/pixel
-        self.route = cv2.imread(route_config['mask_path'], cv2.IMREAD_COLOR)
-        self.m = route_config['scale']
-        self.ref_point = route_config['ref_point']
+        scale_path = os.path.join(os.path.dirname(mask_path),"scale.json")
+        with open(scale_path, 'r') as file:
+            data = json.load(file)
+        self.m = data['scale']
+        self.ref_point = data['ref_point']
+        self.route = cv2.imread(mask_path, cv2.IMREAD_COLOR)
         self.previous_steer = 0
         self.terminate = False
         self.colli = None
-        self.loss_limit = loss_limit
+        self.out_of_road_count_limit = 3
 
     def apply_car(self,carla_car):
         self.car = carla_car
 
     def reset(self):
         self.loss_count = 0
+        self.out_of_road_count = 0
         self.terminate = False
 
-    def get_car_position_on_map(self, car_position):
+    def _get_car_position_on_map(self, car_position):
         # Convert car position from CARLA coordinates to image coordinates
         x, y = car_position
         img_x = int(self.ref_point[1] +x * self.m)
@@ -56,7 +73,7 @@ class RewardFromMap:
         - angle of car direction and road = very low penalty (optional) 
 
         other
-        - stay still (velocity very low) will get punish but car being obstructed it will get reward 
+        - stay no_motion (velocity very low) will get punish but car being obstructed it will get reward 
         """
         if self.colli is None:
             raise Exception("not apply collision sensor yet")
@@ -65,10 +82,12 @@ class RewardFromMap:
         car_position = self.car.get_location()
         # yaw = self.car.get_transform().rotation.yaw
         car_speed = self.car.get_velocity().length()
+        # print(f"car position: {car_speed}")
+        # print(f"car speed: {car_speed}")
         car_angle_change = abs(self.car.get_control().steer - self.previous_steer)
         self.previous_steer = self.car.get_control().steer
 
-        img_x, img_y = self.get_car_position_on_map((car_position.x, car_position.y))
+        img_x, img_y = self._get_car_position_on_map((car_position.x, car_position.y))
 
         if 0 <= img_x < self.route.shape[1] and 0 <= img_y < self.route.shape[0]:
             pixel_value = self.route[img_y, img_x]
@@ -76,32 +95,30 @@ class RewardFromMap:
             # Blue area reward
             if (pixel_value == [255, 0, 0]).all():
                 reward += car_speed * 1
+                self.out_of_road_count=0
+            
+            else:
+                self.out_of_road_count+=1
+                # Red area penalty
+                if (pixel_value == [0, 0, 255]).all():
+                    reward -= car_speed * 1
 
-            # Red area penalty
-            elif (pixel_value == [0, 0, 255]).all():
-                reward -= car_speed * 2
+        if self.out_of_road_count > self.out_of_road_count_limit:
+            self.terminate = True
 
         # Penalty for collision
         if self.colli.collision:
-            reward -= 24
+            reward -= 50
             self.terminate = True
 
         # Penalty for angle change
         reward -= car_angle_change * 1
 
-        # Penalty for low speed unless obstructed
-        if car_speed < 0.1 and not being_obstructed:
-            reward -= 8
-        elif car_speed < 0.1 and being_obstructed:
-            reward += 8
+        # if car_speed < 0.1 and not being_obstructed:
+        if car_speed < 0.1 and being_obstructed:
+            reward += 2
 
-        if reward <= 0 :
-            self.loss_count+=1
-        else:
-            self.loss_count=0
-        
-        if self.loss_count > self.loss_limit:
-            self.terminate = True
+   
 
         return reward
     

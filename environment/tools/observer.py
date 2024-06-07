@@ -96,10 +96,11 @@ class SegVaeActHistObserver(SegVaeObserver):
                  seg_model,
                  vae_encoder,
                  latent_space,
-                 hist_len,
+                 num_img_input,
                  act_num=2,
+                 hist_len = 8,
                  skip_frame=0,
-                vae_decoder=None):
+                 vae_decoder=None):
         
         super().__init__(seg_model=seg_model,
                          vae_encoder=vae_encoder,
@@ -109,7 +110,7 @@ class SegVaeActHistObserver(SegVaeObserver):
         self.skip_frame = skip_frame
         self.hist_len = hist_len
         self.act_num = act_num
-        self.len_latent = (self.latent_space+self.act_num)*self.hist_len
+        self.len_latent = (self.latent_space*num_img_input+self.act_num)*self.hist_len
         self.history_state = deque(maxlen=self.hist_len*(self.skip_frame+1)-self.skip_frame)
 
     def gym_obs(self):
@@ -123,7 +124,8 @@ class SegVaeActHistObserver(SegVaeObserver):
     
     def get_state(self):
         state = np.concatenate([self.history_state[i] for i in range(len(self.history_state)) if i%(self.skip_frame+1)==0])
-        assert state.shape[0] == self.len_latent
+        if state.shape[0] != self.len_latent:
+            raise Exception("the state size and gym space not equal, please check observer argument 'num_img_input' and 'latent_space'")
         return state
     
     def reset(self,imgs):
@@ -131,7 +133,7 @@ class SegVaeActHistObserver(SegVaeObserver):
         cat_latent = self.get_latent(imgs)
         observation = np.concatenate((cat_latent, [0]*self.act_num), axis=-1)
         self.history_state.extend([observation]*((self.hist_len*(self.skip_frame+1))-self.skip_frame))
-        
+
         return self.get_state()
         
     def step(self,**arg):
@@ -156,16 +158,15 @@ class SegVaeActObserver(SegVaeObserver):
     def __init__(self,
                  vae_encoder,
                  seg_model,
-                 latent_space,
-                 act_num=2,
+                 observer_config,
                  vae_decoder=None):
         
         super().__init__(seg_model=seg_model,
                          vae_encoder=vae_encoder,
                          vae_decoder=vae_decoder)
 
-        self.latent_space = latent_space
-        self.act_num = act_num
+        self.latent_space = observer_config['latent_space']
+        self.act_num = observer_config['act_num']
 
 
     def gym_obs(self):
