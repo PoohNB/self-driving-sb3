@@ -12,6 +12,7 @@ forward high and low * (lelf,right high and low + middle) + stay still so we can
 (but can't use with sac)
 * server - server occur error vulkan need to investigate more
 * env - have to add close command in case server down unexpected
+* observer - i should try clip for state representation and splitng the image can also make it as localization
 
 (P) semantic segmentation - it inevitdable to fail sometimes for unseen data, can agent still control after that?
 
@@ -27,4 +28,7 @@ todo
 - add callback function
 - save parameter of each module 
 - scene design
-- discret action 11 
+- discret action 7 
+    - forward 0 0.3 0.6 
+    - left 0.3
+    - right 0.3

@@ -17,7 +17,7 @@ camera = dict(type = "sensor.camera.rgb",
 front_cam = dict(name='front_camera',
                  **camera,
                  Location=(0.98, 0, 1.675),
-                 Rotation=(-10, 0, 0)#12.5
+                 Rotation=(-12.5, 0, 0)#12.5
                  )
 
 left_cam =  dict(name='left_camera',

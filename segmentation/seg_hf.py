@@ -13,6 +13,10 @@ torch.backends.cuda.matmul.allow_tf32 = True
 from segmentation.seg_wrapper import SegmodelWrapper
 
 class HFsegWrapper(SegmodelWrapper):
+
+    """
+    hugging face model with addition method for visulize and predict
+    """
    
     def __init__(self,
                  model_repo,

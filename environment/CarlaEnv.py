@@ -3,16 +3,15 @@ from config.env.env_config import ait_football_env
 from config.env.camera import front_cam,spectator_cam
 from environment.tools.action_wraper import OriginAction
 from environment.tools.hud import get_actor_display_name
+from environment.tools.actor_wrapper import *
+from environment.tools.controllor import PygameControllor
+from environment.tools.scene_designer import *
 import carla
 import random
 import numpy as np
 import gym
 from gym import spaces
 import random
-# from environment.tools.hud import HUD
-from environment.tools.actor_wrapper import *
-from environment.tools.controllor import PygameControllor
-from environment.tools.scene_designer import *
 import weakref
 import cv2
 
@@ -51,8 +50,7 @@ class CarlaImageEnv(gym.Env):
                  discrete_actions = None,
                  activate_render = False,
                  render_raw = False,
-                 render_seg = False,
-                 render_reconst=False,
+                 render_observer = False,
                  augment_image=False,
                  rand_weather=False,                 
                  seed=2024):
@@ -69,8 +67,7 @@ class CarlaImageEnv(gym.Env):
         self.discrete_actions = discrete_actions
         self.activate_render = activate_render
         self.render_raw = render_raw
-        self.render_seg = render_seg
-        self.render_reconst= render_reconst
+        self.render_observer  = render_observer 
         self.rand_weather = rand_weather
 
         self.env_config = env_config
@@ -205,16 +202,8 @@ class CarlaImageEnv(gym.Env):
         if self.render_raw:
             obs_list.append(self.list_images)
             
-        if self.render_seg:
-            obs_list.append(self.observer.get_seg_results())
-
-        if self.render_reconst:
-            reconstructed = self.observer.get_reconstructed()
-            if reconstructed is None:
-                self.render_reconst = False
-                print("there no decoder in observer object")
-            else:
-                obs_list.append(reconstructed)
+        if self.render_observer:
+            obs_list.extend(self.observer.get_renders())
 
         # Resize and arrange images
         spec_height, spec_width,_ = self.spec_image.shape

@@ -76,19 +76,18 @@ class SegVaeObserver():
 
         return cat_latent
     
-    def get_seg_results(self):
-        return self.seg.get_seg_images(self.pred_segs)
-    
-    def get_reconstructed(self):
-        if self.vae_decoder is None:
-            return
-        return self.vae_decoder(self.latents)
+    def get_renders(self):
+        obsr = []
+        obsr.append(self.seg.get_seg_images(self.pred_segs))
+        if self.vae_decoder is not None:
+            obsr.append(self.vae_decoder(self.latents))
+        return obsr
     
 
 
 class SegVaeActHistObserver(SegVaeObserver):
     """
-    work with carla environment as observation wrapper
+    convert raw input to desired state
 
     """
 
@@ -256,3 +255,29 @@ class SegVaeHistObserver():
         cat_latent = torch.cat(latents, dim=1)
 
         return cat_latent
+
+
+class ClipObserver:
+
+    def __init__(self,clip_model,split=3):
+        self.split = split
+        self.model = clip_model
+
+    def gym_obs(self):
+
+        pass
+
+    def get_state(self):
+
+        pass
+
+    def reset(self):
+
+        pass
+
+    def step(self):
+
+        pass
+
+    def get_renders(self):
+        return []
