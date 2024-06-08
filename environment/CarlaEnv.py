@@ -1,5 +1,5 @@
 
-from config.env.env_config import ait_football_env
+from config.env.env_config import env_config_base
 from config.env.camera import front_cam,spectator_cam
 from environment.tools.action_wraper import OriginAction
 from environment.tools.hud import get_actor_display_name
@@ -37,15 +37,19 @@ class CarlaImageEnv(gym.Env):
       but predict -->apply last action --> tick world or predict-->tick world-->apply function
 
     """
+    metadata = {
+        "render.modes": ["human", "rgb_array", "rgb_array_no_hud", "state_pixels"]
+    }
+
 
 
     def __init__(self,
                  observer,
                  rewarder,   
                  car_spawn,
-                 spawn_mode="static",
+                 spawn_mode="random",
                  action_wrapper = OriginAction(), 
-                 env_config =ait_football_env,
+                 env_config =dict(**env_config_base,max_step=1000),
                  cam_config_list=[front_cam], 
                  discrete_actions = None,
                  activate_render = False,
@@ -73,6 +77,7 @@ class CarlaImageEnv(gym.Env):
         self.env_config = env_config
         self.max_step = env_config['max_step']
         self.env_config = env_config
+        self.fps = 1/env_config['delta_frame']
 
         self.manual_end = False
         self.episode_idx =0
@@ -91,33 +96,36 @@ class CarlaImageEnv(gym.Env):
             
         self.world = World(env_config['host'],env_config['port'],env_config['delta_frame'])
 
-        # create actor
-        self.car = VehicleActor(self.world,
-                          env_config['vehicle'],
-                          spawn_points=car_spawn)
-        
-        self.car.apply_mode(spawn_mode)
-        
-        self.rewarder.apply_car(self.car)
-        
-        # dash cam ===
-        self.dcam = []
-        for cf in cam_config_list:
-            if cf["type"] =="sensor.camera.rgb":
-                self.dcam.append(RGBCamera(self.world,self.car,cf,augment_image))
-            elif cf["type"] == "sensor.camera.semantic_segmentation":
-                self.dcam.append(SegCamera(self.world,self.car,cf,augment_image))
+        try:
+            # create actor
+            self.car = VehicleActor(self.world,
+                            env_config['vehicle'],
+                            spawn_points=car_spawn)
+            
+            self.car.apply_mode(spawn_mode)
+            
+            self.rewarder.apply_car(self.car)
+            
+            # dash cam ===
+            self.dcam = []
+            for cf in cam_config_list:
+                if cf["type"] =="sensor.camera.rgb":
+                    self.dcam.append(RGBCamera(self.world,self.car,cf,augment_image))
+                elif cf["type"] == "sensor.camera.semantic_segmentation":
+                    self.dcam.append(SegCamera(self.world,self.car,cf,augment_image))
 
-        # Collision sensor ===
-        self.colli_sensor = CollisionSensor(self.world,self.car)
-        self.rewarder.apply_collision_sensor(self.colli_sensor)
+            # Collision sensor ===
+            self.colli_sensor = CollisionSensor(self.world,self.car)
+            self.rewarder.apply_collision_sensor(self.colli_sensor)
 
-        if self.activate_render:
-            # cam for save video and visualize ===
-            self.spectator = SpectatorCamera(self.world,self.car,spectator_cam)
-            # pygame display ==
-            weak_self = weakref.ref(self)
-            self.pygamectrl = PygameControllor(spectator_cam,weak_self)                                                                                                                                                              
+            if self.activate_render:
+                # cam for save video and visualize ===
+                self.spectator = SpectatorCamera(self.world,self.car,spectator_cam)
+                # pygame display ==
+                weak_self = weakref.ref(self)
+                self.pygamectrl = PygameControllor(spectator_cam,weak_self)  
+        except Exception as e:
+            self.close()                                                                                                                                                            
    
     def reset(self):
 
@@ -129,6 +137,7 @@ class CarlaImageEnv(gym.Env):
         self.count_in_obs = 0 # Step inside obstacle range
         self.step_count = 0
         self.total_reward = 0
+        self.total_speed = 0
         # reset actor   
         self.rewarder.reset()
         self.world.reset_actors() 
@@ -138,10 +147,10 @@ class CarlaImageEnv(gym.Env):
         self.world.tick()
         # get the initial observation ========================================================
         self.list_images = self.world.get_all_obs()
-        obs = self.observer.reset(self.list_images)
+        self.obs = self.observer.reset(self.list_images)
 
 
-        return obs   
+        return self.obs   
 
     def step(self, action):
 
@@ -171,7 +180,7 @@ class CarlaImageEnv(gym.Env):
 
         # get image from camera
         self.list_images = self.world.get_all_obs()
-        obs = self.observer.step(imgs = self.list_images,act=action)
+        self.obs = self.observer.step(imgs = self.list_images,act=action)
             
         # get reward        
         self.reward = self.rewarder.reward(being_obstructed=False)
@@ -182,21 +191,33 @@ class CarlaImageEnv(gym.Env):
 
         # get info
         car_position = self.car.get_location()
-        info = {"step":self.step_count,
+        self.total_distance = self.car.calculate_distance()
+        self.speed = self.car.get_velocity().length()*3.6
+        self.total_speed +=self.speed
+        self.avg_speed = self.total_speed/self.step_count
+        self.mean_reward = self.total_reward/self.step_count
+        info = {"total_step":self.step_count,
                 "location":(car_position.x,car_position.y),
                 "reward":self.reward,
-                "total reward":self.total_reward}
+                "total_reward":self.total_reward,
+                "total_distance":self.total_distance,
+                "avg_speed":self.avg_speed,
+                "mean_reward":self.mean_reward}
 
         if self.activate_render:
             self.render()
             self.pygamectrl.receive_key()
         
-        return  obs,self.reward,done,info
+        return  self.obs,self.reward,done,info
      
 
-    def render(self):
+    def render(self, mode="human"):
 
         self.spec_image = self.spectator.get_obs()
+        if mode == "rgb_array_no_hud":
+            return self.spec_image
+        elif mode == "state_pixels":
+            return self.obs
         
         obs_list = []
         if self.render_raw:
@@ -233,13 +254,12 @@ class CarlaImageEnv(gym.Env):
                 self.spec_image[y_offset:y_offset + target_height, x_offset:x_offset + new_width] = resized_img
                 y_offset += target_height
 
-
         extra_info=[
             "Episode {}".format(self.episode_idx),
             "Step: {}".format(self.step_count),
             "",
-            "Distance traveled: % 7d m" % self.car.calculate_distance(),
-            "speed:      % 7.2f km/h" % (self.car.get_velocity().length()*3.6),
+            "Distance traveled: % 7d m" % self.total_distance,
+            "speed:      % 7.2f km/h" % self.speed,
             "Reward: % 19.2f" % self.reward,
             "Total reward:        % 7.2f" % self.total_reward,
         ]
@@ -247,6 +267,10 @@ class CarlaImageEnv(gym.Env):
             self.pygamectrl.hud.notification("Collision with {}".format(get_actor_display_name(self.colli_sensor.event.other_actor)))
             self.colli_sensor.event=None
         self.pygamectrl.render(self.spec_image,extra_info) 
+
+        if mode == "rgb_array":
+            # Turn display surface into rgb_array
+            return self.pygamectrl.get_display_array()
 
 
     def close(self):

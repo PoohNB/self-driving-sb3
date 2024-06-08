@@ -1,3 +1,8 @@
+# ==============================================================================
+# -- copied and modified from Alberto Maté Angulo --
+# ==============================================================================
+
+
 import cv2
 import math
 import json
@@ -8,21 +13,57 @@ import pygame
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.logger import HParam
 
+from stable_baselines3.common.results_plotter import load_results, ts2xy, plot_results
+import numpy as np
+import os
+import re
+
+def create_policy_paths(save_path,log_dir,policy_name):
+
+    os.makedirs(save_path,exist_ok=True)
+    os.makedirs(log_dir,exist_ok=True)
+
+    pattern = re.compile(rf"{re.escape(policy_name)}_\d+$")
+
+    entries = os.listdir(log_dir)
+    num_run_policy = max([int(entry.split("_")[-1]) for entry in entries if os.path.isdir(os.path.join(log_dir, entry)) and pattern.match(entry)]+[0])
+    # num_run_policy = len([entry for entry in entries if os.path.isdir(os.path.join(log_dir, entry)) and policy_name in entry])
+    name = policy_name+'_'+str(num_run_policy+1)
+    new_save_path = os.path.join(save_path,name)
+    new_log_dir = os.path.join(log_dir,name)
+    return new_save_path,new_log_dir
 
 def write_json(data, path):
-    config_dict = {}
-    with open(path, 'w', encoding='utf-8') as f:
-        for k, v in data.items():
-            if isinstance(v, str) and v.isnumeric():
-                config_dict[k] = int(v)
-            elif isinstance(v, dict):
-                config_dict[k] = dict()
-                for k_inner, v_inner in v.items():
-                    config_dict[k][k_inner] = v_inner.__str__()
-                config_dict[k] = str(config_dict[k])
-            else:
-                config_dict[k] = v.__str__()
-        json.dump(config_dict, f, indent=4)
+    def serialize_value(value):
+        """Serialize a value to a string if it's not already an acceptable type."""
+        
+        if isinstance(value, dict):
+            return {k: serialize_value(v) for k, v in value.items()}
+        elif callable(value):
+            return value.__str__()
+        else:
+            return value
+
+    hparam_dict = {k: serialize_value(v) for k, v in data.items()}
+    os.makedirs(path,exist_ok=True)
+    with open(os.path.join(path,"config.json"), 'w', encoding='utf-8') as f:
+        json.dump(hparam_dict, f, indent=4)
+
+    # config_dict = {}
+    # with open(path, 'w', encoding='utf-8') as f:
+    #     for k, v in data.items():
+    #         if isinstance(v, str) and v.isnumeric():
+    #             config_dict[k] = int(v)
+    #         elif isinstance(v, dict):
+    #             config_dict[k] = dict()
+    #             for k_inner, v_inner in v.items():
+    #                 config_dict[k][k_inner] = v_inner.__str__()
+    #             config_dict[k] = str(config_dict[k])
+    #         else:
+    #             config_dict[k] = v.__str__()
+
+        
+    #     json.dump(config_dict, f, indent=4)
 
 
 class VideoRecorder():
@@ -43,23 +84,26 @@ class VideoRecorder():
 class HParamCallback(BaseCallback):
     def __init__(self, config):
         """
-        Saves the hyperparameters and metrics at the start of the training, and logs them to TensorBoard.
+        Saves the hyperparameters and metrics at the start of the training, and logs them to TensorBoard. - modified
         """
         super().__init__()
         self.config = config
 
     def _on_training_start(self) -> None:
-        hparam_dict = {}
-        for k, v in self.config.items():
-            if isinstance(v, str) and v.isnumeric():
-                hparam_dict[k] = int(v)
-            elif isinstance(v, dict):
-                hparam_dict[k] = dict()
-                for k_inner, v_inner in v.items():
-                    hparam_dict[k][k_inner] = v_inner.__str__()
-                hparam_dict[k] = str(hparam_dict[k])
+        
+
+        def serialize_value(value):
+            """Serialize a value to a string if it's not already an acceptable type."""
+            if isinstance(value, (int, float, str, bool)):
+                return value
+            elif isinstance(value, dict):
+                return str({k: serialize_value(v) for k, v in value.items()})
+            elif callable(value):
+                return value.__str__()
             else:
-                hparam_dict[k] = v.__str__()
+                return str(value)
+
+        hparam_dict = {k: serialize_value(v) for k, v in self.config.items()}
         # define the metrics that will appear in the `HPARAMS` Tensorboard tab by referencing their tag
         # Tensorbaord will find & display metrics from the `SCALARS` tab
         metric_dict = {
@@ -88,9 +132,8 @@ class TensorboardCallback(BaseCallback):
         # Log scalar value (here a random variable)
         if self.locals['dones'][0]:
             self.logger.record("custom/total_reward", self.locals['infos'][0]['total_reward'])
-            self.logger.record("custom/routes_completed", self.locals['infos'][0]['routes_completed'])
             self.logger.record("custom/total_distance", self.locals['infos'][0]['total_distance'])
-            self.logger.record("custom/avg_center_dev", self.locals['infos'][0]['avg_center_dev'])
+            # self.logger.record("custom/avg_center_dev", self.locals['infos'][0]['avg_center_dev'])
             self.logger.record("custom/avg_speed", self.locals['infos'][0]['avg_speed'])
             self.logger.record("custom/mean_reward", self.locals['infos'][0]['mean_reward'])
             self.logger.dump(self.num_timesteps)
@@ -148,6 +191,57 @@ def lr_schedule(initial_value: float, end_value: float, rate: float):
     lr_schedule.__str__ = lambda: f"lr_schedule({initial_value}, {end_value}, {rate})"
 
     return func
+
+
+class SaveOnBestTrainingRewardCallback(BaseCallback):
+
+    """
+        this function for save model every save_freq, also check and save model if model have best mean reward every check_freq 
+    
+    """
+
+    def __init__(self, check_freq: int,save_freq:int ,save_path:str,log_dir: str, verbose=1):
+        super(SaveOnBestTrainingRewardCallback, self).__init__(verbose)
+        self.check_freq = check_freq
+        self.save_freq = save_freq
+        self.log_dir = log_dir
+        self.save_path = save_path
+        self.best_mean_reward = -np.inf
+
+    def _init_callback(self) -> None:
+        # Create folder if needed
+        if self.save_path is not None:
+            os.makedirs(self.save_path, exist_ok=True)
+
+    def _on_step(self) -> bool:
+        if self.n_calls % self.check_freq == 0:
+
+          # Retrieve training reward
+          x, y = ts2xy(load_results(self.log_dir), 'timesteps')
+          if len(x) > 0:
+              # Mean training reward over the last 100 episodes
+              mean_reward = np.mean(y[-100:])
+              if self.verbose > 0:
+                print("Num timesteps: {}".format(self.num_timesteps))
+                print("Best mean reward: {:.2f} - Last mean reward per episode: {:.2f}".format(self.best_mean_reward, mean_reward))
+
+              # New best model, you could save the agent here
+              if mean_reward > self.best_mean_reward:
+                self.best_mean_reward = mean_reward
+                # Example for saving best model
+                if self.verbose > 0:   
+                  print("Saving new best model to {}".format(self.save_path))
+                model_path = os.path.join(self.save_path, 'best_model')
+                self.model.save(model_path)
+                
+        if self.n_calls %self.save_freq ==0:
+          if self.verbose > 0:
+            print("Saving checkpoint model to {}".format(self.save_path))
+          model_path = os.path.join(self.save_path, 'model_{}'.format(self.n_calls))
+          self.model.save(model_path)
+                 
+
+        return True
 
 
 class HistoryWrapperObsDict(gym.Wrapper):

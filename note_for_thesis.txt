@@ -13,6 +13,7 @@ forward high and low * (lelf,right high and low + middle) + stay still so we can
 * server - server occur error vulkan need to investigate more
 * env - have to add close command in case server down unexpected
 * observer - i should try clip for state representation and splitng the image can also make it as localization
+* training - optuna tuning parameter?
 
 (P) semantic segmentation - it inevitdable to fail sometimes for unseen data, can agent still control after that?
 
@@ -25,10 +26,12 @@ sac5 - increase out of the road limit
 sac6 - from sac3 decrease out of road limit 
 
 todo 
-- add callback function
 - save parameter of each module 
+- ackermann control
 - scene design
 - discret action 7 
     - forward 0 0.3 0.6 
     - left 0.3
     - right 0.3
+
+- edit reward to not terminate too early in black area

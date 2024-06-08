@@ -2,6 +2,7 @@ import pygame
 import carla
 from pygame.locals import K_ESCAPE,K_TAB
 from environment.tools.hud import HUD
+import numpy as np
 
 class PygameControllor:
 
@@ -34,6 +35,9 @@ class PygameControllor:
         self.display.blit(pygame.surfarray.make_surface(image.swapaxes(0, 1)), (0, 0))
         self.hud.render(self.display, extra_info=extra_info)
         pygame.display.flip()
+
+    def get_display_array(self):
+        return np.array(pygame.surfarray.array3d(self.display), dtype=np.uint8).transpose([1, 0, 2])
 
     def close(self):
         pygame.quit()
