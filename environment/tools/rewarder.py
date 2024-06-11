@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import os
 import json
+import math
 
 class RewardDummy:
 
@@ -40,16 +41,23 @@ class RewardFromMap:
         self.route = cv2.imread(mask_path, cv2.IMREAD_COLOR)
         self.previous_steer = 0
         self.terminate = False
+        self.reason = ""
         self.colli = None
-        self.out_of_road_count_limit = 3
+        self.out_of_road_count_limit = 30
+        self.staystill_limit = 15
+        self.reward_scale = 4
+        self.minimum_distance = 0.02
 
     def apply_car(self,carla_car):
         self.car = carla_car
 
     def reset(self):
-        self.loss_count = 0
+        self.started=False
+        self.staystill_count = 0
         self.out_of_road_count = 0
         self.terminate = False
+        self.reason = ""
+        self.previous_position = None
 
     def _get_car_position_on_map(self, car_position):
         # Convert car position from CARLA coordinates to image coordinates
@@ -80,8 +88,13 @@ class RewardFromMap:
 
         reward = 0
         car_position = self.car.get_location()
+        if self.previous_position is None:
+            self.previous_position = (car_position.x,car_position.y)
+        distance = math.sqrt((car_position.x-self.previous_position[0])**2+(car_position.y-self.previous_position[1])**2)
+        self.previous_position = (car_position.x,car_position.y)
         # yaw = self.car.get_transform().rotation.yaw
-        car_speed = self.car.get_velocity().length()
+        # max speed should be around 4.17 --> ~ 0.8 per step maximum
+  
         # print(f"car position: {car_speed}")
         # print(f"car speed: {car_speed}")
         car_angle_change = abs(self.car.get_control().steer - self.previous_steer)
@@ -94,37 +107,51 @@ class RewardFromMap:
             
             # Blue area reward
             if (pixel_value == [255, 0, 0]).all():
-                reward += car_speed * 1
+                reward += distance * self.reward_scale
                 self.out_of_road_count=0
             
+
+            # Red area penalty
+            elif (pixel_value == [0, 0, 255]).all():
+                reward -= distance * self.reward_scale
+                self.out_of_road_count+=2
+            # black area
             else:
                 self.out_of_road_count+=1
-                # Red area penalty
-                if (pixel_value == [0, 0, 255]).all():
-                    reward -= car_speed * 1
 
         if self.out_of_road_count > self.out_of_road_count_limit:
             self.terminate = True
+            self.reason = "out of the path for too long"
+
+        # reward -= car_angle_change  * 2
+        # reward for still angle depend on distance, car_angle_change maximum is 2 so don't worry
+        reward += (2 ** (((2 - car_angle_change) / 2)**4) - 1) * distance * self.reward_scale * 0.6 # <-- [0,1] maximum rate 0.5 2 is maximum angle 
+
+        # if car_speed < 0.1 and not being_obstructed:
+        if distance < self.minimum_distance and being_obstructed:
+            reward += 2
+        elif distance < self.minimum_distance:
+            self.staystill_count+=1
+        else:
+            self.started = True
+            self.staystill_count=0
+
+        if self.staystill_count>self.staystill_limit and self.started:
+            self.terminate = True
+            self.reason = "stay still for too long"
+            return -10
 
         # Penalty for collision
         if self.colli.collision:
-            reward -= 50
             self.terminate = True
-
-        # Penalty for angle change
-        reward -= car_angle_change * 1
-
-        # if car_speed < 0.1 and not being_obstructed:
-        if car_speed < 0.1 and being_obstructed:
-            reward += 2
-
-   
+            self.reason = "collision terminate"
+            return -20
 
         return reward
     
     def get_terminate(self):
 
-        return self.terminate
+        return self.terminate,self.reason
 
 
 

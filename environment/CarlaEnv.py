@@ -59,8 +59,9 @@ class CarlaImageEnv(gym.Env):
                  rand_weather=False,                 
                  seed=2024):
         
-        if discrete_actions is not None and not isinstance(discrete_actions,dict):
-            raise Exception("discrete action have to be dict type")
+        if discrete_actions is not None:
+            if not isinstance(discrete_actions,dict) and not isinstance(discrete_actions,list):
+                raise Exception("discrete action have to be dict type or list type")
         
         random.seed(seed)
         # param ======================================================================================
@@ -79,12 +80,12 @@ class CarlaImageEnv(gym.Env):
         self.env_config = env_config
         self.fps = 1/env_config['delta_frame']
 
-        self.manual_end = False
+        self.closed_env = False
         self.episode_idx =0
 
         # set gym space ==============================================================================
 
-        if discrete_actions == None :
+        if discrete_actions is None :
             print("using continuous space steer = [-1,1] , throttle = [0,1]")
             self.action_space = spaces.Box(np.array([-1, 0]), np.array([1, 1]), dtype=np.float32) 
             
@@ -125,43 +126,52 @@ class CarlaImageEnv(gym.Env):
                 weak_self = weakref.ref(self)
                 self.pygamectrl = PygameControllor(spectator_cam,weak_self)  
         except Exception as e:
+            print(e)
             self.close()                                                                                                                                                            
    
     def reset(self):
 
-        if self.manual_end:
+        if self.closed_env:
             raise Exception("CarlaEnv.reset() called after the environment was closed.")
         # initial basic param ===============================================================
         self.episode_idx+=1
-        self.curr_steer_position = 0
-        self.count_in_obs = 0 # Step inside obstacle range
+        # self.count_in_obs = 0 # Step inside obstacle range
         self.step_count = 0
         self.total_reward = 0
         self.total_speed = 0
+        self.total_distance=0
+        self.reward = 0
+        self.prev_pos = None
         # reset actor   
         self.rewarder.reset()
         self.world.reset_actors() 
         if self.rand_weather:
             self.world.random_wather()
         # spawn obstacle===
+        # advance step ====
         self.world.tick()
+        self.update_infos()
         # get the initial observation ========================================================
         self.list_images = self.world.get_all_obs()
         self.obs = self.observer.reset(self.list_images)
-
+        if self.activate_render:
+            self.spec_image = self.spectator.get_obs()
+            self.render()
+            self.pygamectrl.receive_key()
 
         return self.obs   
 
     def step(self, action):
 
-        # update param 
-    
-        self.step_count+=1
+
         # action = copy.deepcopy(action)
-        if self.manual_end:
+        if self.closed_env:
             raise Exception("CarlaEnv.step() called after the environment was closed." +
                             "Check for info[\"closed\"] == True in the learning loop.")
+        # update param 
+        self.step_count+=1
 
+        # post process action
         if self.discrete_actions is None:
             steer, throttle,brake = self.action_wraper(action=action)
         else:
@@ -175,6 +185,7 @@ class CarlaImageEnv(gym.Env):
         # self.car.apply_ackermann_control(control)
 
         self.world.tick()
+        self.update_infos()
 
         self.car.apply_control(control)
 
@@ -185,39 +196,55 @@ class CarlaImageEnv(gym.Env):
         # get reward        
         self.reward = self.rewarder.reward(being_obstructed=False)
         self.total_reward+=self.reward
+        terminate,self.reason = self.rewarder.get_terminate()
 
         # basic termination -> colision or reach max step or out of the rount more than n step 
-        done = self.colli_sensor.collision or self.step_count > self.max_step or self.manual_end or self.rewarder.get_terminate()
+        done = self.colli_sensor.collision or self.step_count > self.max_step or self.closed_env or terminate
 
         # get info
-        car_position = self.car.get_location()
-        self.total_distance = self.car.calculate_distance()
-        self.speed = self.car.get_velocity().length()*3.6
-        self.total_speed +=self.speed
-        self.avg_speed = self.total_speed/self.step_count
-        self.mean_reward = self.total_reward/self.step_count
-        info = {"total_step":self.step_count,
-                "location":(car_position.x,car_position.y),
+        info = {"step":self.step_count,
+                "location":(self.car_position.x,self.car_position.y),
                 "reward":self.reward,
                 "total_reward":self.total_reward,
+                "distance":self.distance,
                 "total_distance":self.total_distance,
+                "speed":self.speed,
                 "avg_speed":self.avg_speed,
+                "steer":steer,
                 "mean_reward":self.mean_reward}
 
         if self.activate_render:
+            self.spec_image = self.spectator.get_obs()
             self.render()
             self.pygamectrl.receive_key()
         
         return  self.obs,self.reward,done,info
      
+    def update_infos(self):
+        self.car_position = self.car.get_location()
+        if self.prev_pos is None:
+            self.prev_pos = (self.car_position.x,self.car_position.y)
+        self.distance = self.car.calculate_distance((self.prev_pos),(self.car_position.x,self.car_position.y))
+        self.prev_pos= (self.car_position.x,self.car_position.y)
+        self.total_distance += self.distance
+        self.speed = self.car.get_xy_velocity()*3.6
+        self.total_speed +=self.speed
+        self.avg_speed = self.total_speed/self.step_count if self.step_count >0 else 0
+        self.mean_reward = self.total_reward/self.step_count if self.step_count >0 else 0
 
     def render(self, mode="human"):
-
-        self.spec_image = self.spectator.get_obs()
+        if self.closed_env:
+            raise Exception("CarlaEnv.render() called after the environment was closed." +
+                            "Check for info[\"closed\"] == True in the learning loop.")
+        
         if mode == "rgb_array_no_hud":
             return self.spec_image
+        elif mode == "rgb_array":
+            # Turn display surface into rgb_array
+            return self.pygamectrl.get_display_array()
         elif mode == "state_pixels":
             return self.obs
+        
         
         obs_list = []
         if self.render_raw:
@@ -258,24 +285,30 @@ class CarlaImageEnv(gym.Env):
             "Episode {}".format(self.episode_idx),
             "Step: {}".format(self.step_count),
             "",
+            "Distance: % 7.3f m" % self.distance, 
             "Distance traveled: % 7d m" % self.total_distance,
             "speed:      % 7.2f km/h" % self.speed,
             "Reward: % 19.2f" % self.reward,
             "Total reward:        % 7.2f" % self.total_reward,
         ]
+
         if self.colli_sensor.event is not None:
             self.pygamectrl.hud.notification("Collision with {}".format(get_actor_display_name(self.colli_sensor.event.other_actor)))
             self.colli_sensor.event=None
+  
         self.pygamectrl.render(self.spec_image,extra_info) 
 
-        if mode == "rgb_array":
-            # Turn display surface into rgb_array
-            return self.pygamectrl.get_display_array()
+
+    
 
 
     def close(self):
         if self.activate_render:
-            self.pygamectrl.close()
+            try:
+                self.pygamectrl.close()
+            except:
+                pass
 
         self.world.reset()
+        self.closed_env = True
 

@@ -3,7 +3,7 @@
 # ==============================================================================
 
 
-
+import threading
 import carla
 import numpy as np
 import cv2
@@ -73,7 +73,8 @@ class CameraBase(CarlaActorBase):
         # self.tag = tag
         # self.wrapped_world = wrapped_world
         # =============================================
-        
+        self.lock = threading.Lock()
+        self.cam_tmp = None
         self.tag = cam_config['tag']
         self.turb = turbulence
         self.world = wrapped_world.get_carla_world()
@@ -334,31 +335,30 @@ class VehicleActor(CarlaActorBase):
         else:
             print(f"no mode {mode} avilable")
 
+    def get_xy_velocity(self):
+        velocity_vector = self.veh.get_velocity()
+        vx = velocity_vector.x
+        vy = velocity_vector.y
+        velocity_magnitude_xy = math.sqrt(vx**2 + vy**2)
+
+        return velocity_magnitude_xy
+
+
     def get_carla_actor(self):
 
         return self.veh
     
-    def calculate_distance(self):
+    @staticmethod
+    def calculate_distance(prev_pos:tuple,cur_pos:tuple):
         """Calculate Euclidean distance between two positions."""
-        if self.prev_pos is not None:
-            car_pos = self.veh.get_location()
-            self.cur_pos = (car_pos.x,car_pos.y)
-            dist = math.sqrt((self.prev_pos[0] - self.cur_pos[0])**2 + (self.prev_pos[1] - self.cur_pos[1])**2)
-            self.traveled_dist+=dist
-            self.prev_pos = self.cur_pos
-        else:
-            car_pos = self.veh.get_location()
-            self.prev_pos = (car_pos.x,car_pos.y)
 
-        return self.traveled_dist
+        return math.sqrt((prev_pos[0] - cur_pos[0])**2 + (prev_pos[1] - cur_pos[1])**2)
     
     def reset(self):
         """
         teleport the car 
         """
         self.episode+=1
-        self.traveled_dist = 0
-        self.prev_pos = None
 
         self.select_point()
         self.veh.set_simulate_physics(False)

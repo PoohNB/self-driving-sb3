@@ -27,7 +27,7 @@ def env_from_config(CONFIG,RENDER):
     seg_model = HF_mask2Formermodel(**CONFIG['seg_config'])
     vae_encoder = VencoderWrapper(**CONFIG['vencoder_config'])
 
-    if RENDER:
+    if RENDER and (CONFIG['decoder_config'] is not None):
         vae_decoder = DecoderWrapper(**CONFIG['decoder_config'])
     else:
         vae_decoder = None
@@ -39,14 +39,13 @@ def env_from_config(CONFIG,RENDER):
 
     rewarder = RewardFromMap(**CONFIG['rewarder_config'])
     # rewarder1 = RewardDummy()
-    if CONFIG['actionwrapper'] is not None:
-        if CONFIG['actionwrapper']['name'] == 'LimitAction':
-            action_wrapper = LimitAction(**CONFIG['actionwrapper']['config'])
-        else:
-            print("not using action wrapper")
-            action_wrapper = OriginAction()
+  
+    if CONFIG['actionwrapper']['name'] == 'LimitAction':
+        action_wrapper = LimitAction(**CONFIG['actionwrapper']['action_config'])
     else:
-        action_wrapper = None
+        print("not using action wrapper")
+        action_wrapper = OriginAction()
+
 
     env = CarlaImageEnv(observer=observer,
                     rewarder=rewarder,

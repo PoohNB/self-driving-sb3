@@ -1,16 +1,14 @@
-sr = 0.1 # have to lower than 0.1
-
+# Example
 
 
 limitaction1 = dict(name="LimitAction",
-                    config=dict(action_config=dict(throttle_range = (0.0,0.6),
+                    action_config=dict(throttle_range = (0.0,0.6),
                                                     max_steer = 0.8,
-                                                    steer_still_range = sr),
-                                stable_steer=True))
+                                                    steer_still_range = 0.1))
 
-dicretize_action1 = dict(steer_list = [-0.6,-0.1,0,0.1,0.6],
+discretize_action1 = dict(name="DiscretizeAction",steer_list = [-0.6,-0.1,0,0.1,0.6],
                   throttle_list = [0.4,0.8],
-                  steer_still_range = sr)
+                  steer_still_range = 0.1)
 
 
 steer_speed = 0.2

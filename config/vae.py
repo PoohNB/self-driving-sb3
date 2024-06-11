@@ -19,3 +19,7 @@ vencoder64 = dict(model_path="autoencoder/model/vae64/best/var_encoder_model.pth
 
 vencoder128 =  dict(model_path="autoencoder/model/vae128/best/var_encoder_model.pth",
             latent_dims=128)
+
+vae_pair = dict(vencoder32=decoder32,
+                vencoder16=decoder16,
+                )

@@ -18,6 +18,7 @@ SAC1 = dict(
         policy_kwargs=dict(log_std_init=-3, net_arch=[500, 300]),
     )
 
+
 DDPG1 = dict(
         gamma=0.98,
         buffer_size=200000,

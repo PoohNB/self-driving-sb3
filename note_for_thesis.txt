@@ -26,12 +26,11 @@ sac5 - increase out of the road limit
 sac6 - from sac3 decrease out of road limit 
 
 todo 
-- save parameter of each module 
+
 - ackermann control
 - scene design
 - discret action 7 
     - forward 0 0.3 0.6 
     - left 0.3
     - right 0.3
-
-- edit reward to not terminate too early in black area
+-

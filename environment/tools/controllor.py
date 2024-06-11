@@ -23,7 +23,6 @@ class PygameControllor:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     self.env.close()
-                    self.env.manual_end = True
                 elif event.key == pygame.K_TAB:
                     self.env.spectator.change_perception()
 

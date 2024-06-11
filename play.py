@@ -63,7 +63,7 @@ from __future__ import print_function
 
 from config.env.spawn_points import ait_football_spawn
 car_spawn = ait_football_spawn
-from utils.tools import carla_point
+from utils_backup.tools import carla_point
 import glob
 import os
 import sys
@@ -730,6 +730,9 @@ class HUD(object):
             'Simulation time: % 12s' % datetime.timedelta(seconds=int(self.simulation_time)),
             '',
             'Speed:   % 15.0f km/h' % (3.6 * math.sqrt(v.x**2 + v.y**2 + v.z**2)),
+            f'x{v.x}',
+            f'y{v.y}',
+            f'z{v.z}',
             u'Compass:% 17.0f\N{DEGREE SIGN} % 2s' % (compass, heading),
             'Accelero: (%5.1f,%5.1f,%5.1f)' % (world.imu_sensor.accelerometer),
             'Gyroscop: (%5.1f,%5.1f,%5.1f)' % (world.imu_sensor.gyroscope),
@@ -752,6 +755,7 @@ class HUD(object):
                     'Ackermann Controller:',
                     '  Target speed: % 8.0f km/h' % (3.6*self._ackermann_control.speed),
                 ]
+ 
         elif isinstance(c, carla.WalkerControl):
             self._info_text += [
                 ('Speed:', c.speed, 0.0, 5.556),

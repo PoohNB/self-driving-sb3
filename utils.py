@@ -6,6 +6,7 @@
 import cv2
 import math
 import json
+import pickle
 
 import gym
 import numpy as np
@@ -17,6 +18,7 @@ from stable_baselines3.common.results_plotter import load_results, ts2xy, plot_r
 import numpy as np
 import os
 import re
+
 
 def create_policy_paths(save_path,log_dir,policy_name):
 
@@ -33,6 +35,11 @@ def create_policy_paths(save_path,log_dir,policy_name):
     new_log_dir = os.path.join(log_dir,name)
     return new_save_path,new_log_dir
 
+def write_pickle(data, path):
+    with open(path, 'wb') as f:
+        pickle.dump(data, f)
+
+
 def write_json(data, path):
     def serialize_value(value):
         """Serialize a value to a string if it's not already an acceptable type."""
@@ -45,25 +52,11 @@ def write_json(data, path):
             return value
 
     hparam_dict = {k: serialize_value(v) for k, v in data.items()}
-    os.makedirs(path,exist_ok=True)
-    with open(os.path.join(path,"config.json"), 'w', encoding='utf-8') as f:
+    os.makedirs(os.path.dirname(path),exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as f:
         json.dump(hparam_dict, f, indent=4)
 
-    # config_dict = {}
-    # with open(path, 'w', encoding='utf-8') as f:
-    #     for k, v in data.items():
-    #         if isinstance(v, str) and v.isnumeric():
-    #             config_dict[k] = int(v)
-    #         elif isinstance(v, dict):
-    #             config_dict[k] = dict()
-    #             for k_inner, v_inner in v.items():
-    #                 config_dict[k][k_inner] = v_inner.__str__()
-    #             config_dict[k] = str(config_dict[k])
-    #         else:
-    #             config_dict[k] = v.__str__()
 
-        
-    #     json.dump(config_dict, f, indent=4)
 
 
 class VideoRecorder():

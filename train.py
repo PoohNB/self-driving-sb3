@@ -1,6 +1,6 @@
 from environment.loader import env_from_config
 
-from utils import TensorboardCallback,write_json,create_policy_paths
+from utils import TensorboardCallback,write_json,write_pickle,create_policy_paths
 
 from stable_baselines3 import SAC,PPO,DDPG
 from sb3_contrib import RecurrentPPO
@@ -15,32 +15,37 @@ from config.trainRL_config import RL_test
 CONFIG = RL_test
 LOG_DIR = "runs/RL"
 SAVE_PATH = "RLmodel"
-RENDER = False
+RENDER = True
 
-SAVE_PATH,LOG_DIR = create_policy_paths(SAVE_PATH,LOG_DIR,CONFIG['algorithm']['policy'])
+algo_config = CONFIG['train']["algorithm"]
+train_config = CONFIG['train']['train_config']
+
+SAVE_PATH,LOG_DIR = create_policy_paths(SAVE_PATH,LOG_DIR,algo_config['policy'])
 
 # set up logger
 new_logger = configure(LOG_DIR, ["tensorboard"]) # ["stdout", "csv", "tensorboard"]
 
-env = env_from_config(CONFIG,RENDER=RENDER)
+env = env_from_config(CONFIG['env'],RENDER=RENDER)
+
 
 try:
 
-    Policy = available_policy[CONFIG["algorithm"]["policy"]]
+    Policy = available_policy[algo_config["policy"]]
     model = Policy('MlpPolicy', 
                 env, 
                 verbose=1, 
-                seed=CONFIG['algorithm']['seed'], 
+                seed=algo_config['seed'], 
                 # tensorboard_log=LOG_DIR,
                     device='cuda',
-                **CONFIG['algorithm']['model_config'])
+                **algo_config['model_config'])
 
     model.set_logger(new_logger)
 
-    write_json(CONFIG,SAVE_PATH)
-    model.learn(total_timesteps=CONFIG['train_config']['total_timesteps'],
+    write_json(CONFIG,os.path.join(SAVE_PATH,"config.json"))
+    write_pickle(CONFIG['env'],os.path.join(SAVE_PATH,"env_config.pkl"))
+    model.learn(total_timesteps=train_config['total_timesteps'],
                 callback=[ TensorboardCallback(1), CheckpointCallback(
-                    save_freq=CONFIG['train_config']['total_timesteps'] // CONFIG['train_config']["num_checkpoints"],
+                    save_freq=train_config['total_timesteps'] // train_config["num_checkpoints"],
                     save_path=SAVE_PATH,
                     name_prefix="model")], reset_num_timesteps=False)
     
