@@ -4,7 +4,7 @@ from config.env.camera import front_cam,spectator_cam
 from environment.tools.action_wraper import OriginAction
 from environment.tools.hud import get_actor_display_name
 from environment.tools.actor_wrapper import *
-from environment.tools.controllor import PygameControllor
+from environment.tools.controllor import PygameManual
 from environment.tools.scene_designer import *
 import carla
 import random
@@ -19,7 +19,7 @@ import cv2
 #     "spectator": carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15)),
 #     "dashboard": carla.Transform(carla.Location(x=1.6, z=1.7)),}
 
-class CarlaImageEnv(gym.Env):
+class ManualCtrlEnv():
 
     """
     open-ai environment for work with carla simulation server
@@ -52,11 +52,9 @@ class CarlaImageEnv(gym.Env):
                  env_config =dict(**env_config_base,max_step=1000),
                  cam_config_list=[front_cam], 
                  discrete_actions = None,
-                 activate_render = False,
-                 render_raw = False,
-                 render_observer = False,
                  augment_image=False,
-                 rand_weather=False,                 
+                 rand_weather=False,
+                 sync = False,                
                  seed=2024):
         
         if discrete_actions is not None:
@@ -70,9 +68,8 @@ class CarlaImageEnv(gym.Env):
         self.action_wraper = action_wrapper
         self.rewarder = rewarder
         self.discrete_actions = discrete_actions
-        self.activate_render = activate_render
-        self.render_raw = render_raw
-        self.render_observer  = render_observer 
+        self.render_raw = True
+        self.render_observer  = True
         self.rand_weather = rand_weather
 
         self.env_config = env_config
@@ -82,6 +79,7 @@ class CarlaImageEnv(gym.Env):
 
         self.closed_env = False
         self.episode_idx =0
+        self.sync = sync
 
         # set gym space ==============================================================================
 
@@ -95,7 +93,7 @@ class CarlaImageEnv(gym.Env):
 
         self.observation_space = self.observer.gym_obs()
             
-        self.world = World(env_config['host'],env_config['port'],env_config['delta_frame'])
+        self.world = World(env_config['host'],env_config['port'],env_config['delta_frame'],sync_mode=self.sync)
 
         try:
             # create actor
@@ -119,17 +117,17 @@ class CarlaImageEnv(gym.Env):
             self.colli_sensor = CollisionSensor(self.world,self.car)
             self.rewarder.apply_collision_sensor(self.colli_sensor)
 
-            if self.activate_render:
-                # cam for save video and visualize ===
-                self.spectator = SpectatorCamera(self.world,self.car,spectator_cam)
-                # pygame display ==
-                weak_self = weakref.ref(self)
-                self.pygamectrl = PygameControllor(spectator_cam,weak_self)  
+
+            # cam for save video and visualize ===
+            self.spectator = SpectatorCamera(self.world,self.car,spectator_cam)
+            # pygame display ==
+            weak_self = weakref.ref(self)
+            self.pygamectrl = PygameManual(spectator_cam,weak_self,self.discrete_actions)  
         except Exception as e:
             print(e)
             self.close()                                                                                                                                                            
    
-    def reset(self, *, seed=None, options=None):
+    def reset(self):
 
         if self.closed_env:
             raise Exception("CarlaEnv.reset() called after the environment was closed.")
@@ -142,6 +140,8 @@ class CarlaImageEnv(gym.Env):
         self.total_distance=0
         self.reward = 0
         self.prev_pos = None
+        self.action = [0,0]
+        self.reason = ""
         # reset actor   
         self.rewarder.reset()
         self.world.reset_actors() 
@@ -149,20 +149,20 @@ class CarlaImageEnv(gym.Env):
             self.world.random_wather()
         # spawn obstacle===
         # advance step ====
-        for _ in range(4):
-            self.world.tick()
+        if self.sync:
+            for _ in range(4):
+                self.world.tick()
         self.update_infos()
         # get the initial observation ========================================================
         self.list_images = self.world.get_all_obs()
         self.obs = self.observer.reset(self.list_images)
-        if self.activate_render:
-            self.spec_image = self.spectator.get_obs()
-            self.render()
-            self.pygamectrl.receive_key()
 
-        return self.obs,{}
+        self.spec_image = self.spectator.get_obs()
+        self.render()
 
-    def step(self, action):
+        return self.obs
+
+    def step(self):
 
 
         # action = copy.deepcopy(action)
@@ -172,14 +172,13 @@ class CarlaImageEnv(gym.Env):
         # update param 
         self.step_count+=1
 
-        # post process action
-        if self.discrete_actions is None:
-            steer, throttle,brake = self.action_wraper(action=action)
-        else:
-            steer, throttle = self.discrete_actions[action]
-            brake = False
+        action_command = self.pygamectrl.receive_key()
+        if action_command is not None:
+            self.action = action_command
+            
+        self.steer,self.throttle = self.action
 
-        control = carla.VehicleControl(throttle=throttle, steer=steer, brake=brake,
+        control = carla.VehicleControl(throttle=self.throttle, steer=self.steer, brake=False,
                                        hand_brake=False, reverse=False, manual_gear_shift=False, gear=0)
         
         # control = carla.VehicleAckermannControl(steer=steer, steer_speed=0.3 ,speed=throttle, acceleration=3.6, jerk=0.1)
@@ -193,15 +192,15 @@ class CarlaImageEnv(gym.Env):
 
         # get image from camera
         self.list_images = self.world.get_all_obs()
-        self.obs = self.observer.step(imgs = self.list_images,act=action)
+        self.obs = self.observer.step(imgs = self.list_images,act=self.action)
             
         # get reward        
         self.reward = self.rewarder(being_obstructed=False)
         self.total_reward+=self.reward
-        terminate,reason = self.rewarder.get_terminate()
+        terminate,self.reason = self.rewarder.get_terminate()
 
         # basic termination -> colision or reach max step or out of the rount more than n step 
-        done = self.colli_sensor.collision or self.step_count > self.max_step or self.closed_env or terminate
+        done =  self.closed_env 
 
         # get info
         info = {"step":self.step_count,
@@ -212,28 +211,14 @@ class CarlaImageEnv(gym.Env):
                 "total_distance":self.total_distance,
                 "speed":self.speed,
                 "avg_speed":self.avg_speed,
-                "steer":steer,
+                "steer":self.steer,
                 "mean_reward":self.mean_reward,
-                "terminate reason":reason}
+                "terminate reason":self.reason}
 
-        if self.activate_render:
-            self.spec_image = self.spectator.get_obs()
-            self.render()
-            self.pygamectrl.receive_key()
-        
-        return  self.obs,self.reward,done,False,info
+        self.spec_image = self.spectator.get_obs()
+        self.render()
     
-    def get_raw_images(self):
-        return self.list_images
-    
-    def get_spectator_image(self,hud=True):
-        if hud:
-            return self.pygamectrl.get_display_array()
-        else:
-            return self.spec_image
-        
-    def get_input_states(self):
-        return self.obs
+        return  self.obs,self.reward,done,info
      
     def update_infos(self):
         self.car_position = self.car.get_location()
@@ -246,6 +231,18 @@ class CarlaImageEnv(gym.Env):
         self.total_speed +=self.speed
         self.avg_speed = self.total_speed/self.step_count if self.step_count >0 else 0
         self.mean_reward = self.total_reward/self.step_count if self.step_count >0 else 0
+
+    def get_raw_images(self):
+        return self.list_images
+    
+    def get_spectator_image(self,hud=True):
+        if hud:
+            return self.pygamectrl.get_display_array()
+        else:
+            return self.spec_image
+        
+    def get_input_states(self):
+        return self.obs
 
     def render(self):
         
@@ -298,6 +295,8 @@ class CarlaImageEnv(gym.Env):
         if self.colli_sensor.event is not None:
             self.pygamectrl.hud.notification("Collision with {}".format(get_actor_display_name(self.colli_sensor.event.other_actor)))
             self.colli_sensor.event=None
+        if self.reason != "":
+            self.pygamectrl.hud.notification(self.reason)
   
         self.pygamectrl.render(self.spec_image,extra_info) 
 
@@ -306,11 +305,11 @@ class CarlaImageEnv(gym.Env):
 
 
     def close(self):
-        if self.activate_render:
-            try:
-                self.pygamectrl.close()
-            except:
-                pass
+
+        try:
+            self.pygamectrl.close()
+        except:
+            pass
 
         self.world.reset()
         self.closed_env = True

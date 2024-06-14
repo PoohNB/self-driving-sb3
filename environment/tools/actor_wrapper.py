@@ -363,7 +363,7 @@ class VehicleActor(CarlaActorBase):
         self.select_point()
         self.veh.set_simulate_physics(False)
         self.veh.set_transform(self.spawn_points[self.st])
-        time.sleep(0.2)
+        time.sleep(0.1)
         self.veh.set_simulate_physics(True)
 
     def select_point(self):
@@ -428,7 +428,7 @@ class World(ManageActors):
                  host,
                  port,
                  delta_frame,
-                 default_weather=carla.WeatherParameters.ClearSunset,
+                 default_weather=carla.WeatherParameters.ClearNoon,
                  sync_mode=True):
         
         self.delta_frame = delta_frame

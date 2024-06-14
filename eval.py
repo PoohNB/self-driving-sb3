@@ -8,7 +8,8 @@ from stable_baselines3 import SAC, PPO, DDPG
 from sb3_contrib import RecurrentPPO
 from environment.loader import env_from_config
 from utils import VideoRecorder
-# from config.trainRL_config import RL1
+from config.trainRL_config import ENV2
+from environment.tools.env_wrapper import GymWrapper
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -23,26 +24,36 @@ available_policy = {
 }
 
 # Paths and configurations=============
-model_path = "RLmodel/SAC_4/model_100000_steps.zip"
+model_path = "RLmodel/SAC_5/model_100000_steps.zip"
+# model_path = "optuna_trials/PPO/trial_21/best_model.zip"
+manual_config = None
 seed = 2024
 record = True # get 1 video and 1 csv file of info of each step
-eval_times = 1
+eval_times = 2
 #=============================
 
+if manual_config is None:
+    model_dir = os.path.dirname(model_path)
+    checkpoint_name = os.path.basename(model_path)
+    config_path = os.path.join(model_dir, "env_config.pkl")
 
-dir = os.path.dirname(model_path)
-checkpoint_name = os.path.basename(model_path)
-config_path = os.path.join(dir, "env_config.pkl")
+
 
 if record:
-    record_path = os.path.join("recorded",dir.split('/')[-1])
+    record_path = os.path.join("recorded",model_dir.split('/')[-1])
     os.makedirs(record_path,exist_ok=True)
     video_path = os.path.join(record_path,checkpoint_name.replace(".zip", "_eval.avi"))
     result_path = os.path.join(record_path,"result.json")
     csv_path = os.path.join(record_path,"infos.csv")
 # Load the configuration file
-with open(config_path, 'rb') as file:
-    env_config = pickle.load(file)
+
+
+if manual_config is not None:
+    env_config = manual_config
+
+else:
+    with open(config_path, 'rb') as file:
+        env_config = pickle.load(file)
 
 env_config['seed'] = seed
 if env_config['decoder_config'] is None:
@@ -55,9 +66,10 @@ try:
     
     # Create environment
     env = env_from_config(env_config, True)
+    env = GymWrapper(env)
 
     # Load the model
-    Policy = available_policy[dir.split('/')[-1].split('_')[0]]
+    Policy = available_policy[model_path.split('/')[1].split('_')[0]]
     model = Policy.load(model_path, env=env, device='cuda')
 
     logger.info("Model and environment loaded successfully.")
@@ -78,13 +90,14 @@ try:
         obs = env.reset()
         done = False
         total_reward = 0
-        rendered_frame = env.render(mode='rgb_array')
+        rendered_frame = env.get_spectator_image()
+        obs_shape = obs.shape[0]
 
         while not done:
-            action, _states = model.predict(obs.reshape((1,272)))#
+            action, _states = model.predict(obs.reshape((1,obs_shape)))#
             obs, reward, done, info = env.step(action)
             total_reward += reward
-            rendered_frame = env.render(mode='rgb_array')
+            rendered_frame = env.get_spectator_image()
             if record:
                 video_recorder.add_frame(rendered_frame)
                 data_list.append(info)

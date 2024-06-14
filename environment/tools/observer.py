@@ -1,11 +1,11 @@
 # observer is for convert the input from environment to the state
 
 from collections import deque
-from gym import spaces
+from gymnasium import spaces
 import numpy as np
 import torch
 
-class dummy_observer():
+class DummyObserver():
     """
     class for test only can't work with sb3
 
@@ -94,7 +94,6 @@ class SegVaeActHistObserver(SegVaeObserver):
     def __init__(self,                 
                  seg_model,
                  vae_encoder,
-                 latent_space,
                  num_img_input,
                  act_num=2,
                  hist_len = 8,
@@ -105,7 +104,7 @@ class SegVaeActHistObserver(SegVaeObserver):
                          vae_encoder=vae_encoder,
                          vae_decoder=vae_decoder)
 
-        self.latent_space = latent_space
+        self.latent_space = vae_encoder.latent_dims
         self.skip_frame = skip_frame
         self.hist_len = hist_len
         self.act_num = act_num
@@ -157,31 +156,34 @@ class SegVaeActObserver(SegVaeObserver):
     def __init__(self,
                  vae_encoder,
                  seg_model,
-                 observer_config,
+                 num_img_input,
+                 act_num,
                  vae_decoder=None):
         
         super().__init__(seg_model=seg_model,
                          vae_encoder=vae_encoder,
                          vae_decoder=vae_decoder)
 
-        self.latent_space = observer_config['latent_space']
-        self.act_num = observer_config['act_num']
+        self.latent_space = vae_encoder.latent_dims
+        self.act_num = act_num
+        self.len_latent = (self.latent_space+self.act_num)*num_img_input
 
 
     def gym_obs(self):
 
         observation_space = spaces.Box(low=np.finfo(np.float32).min,
                                                 high=np.finfo(np.float32).max,
-                                                shape=(1, self.latent_space+self.act_num),
+                                                shape=(1, self.len_latent),
                                                 dtype=np.float32)
         
         return observation_space
+        
     
     def reset(self,imgs):
 
         cat_latent = self.get_latent(imgs)
         observation = np.concatenate((cat_latent, [0]*self.act_num), axis=-1)
-        
+
         return observation
         
     def step(self,**arg):
@@ -281,3 +283,13 @@ class ClipObserver:
 
     def get_renders(self):
         return []
+
+
+
+
+observer_type = {'DummyObserver':DummyObserver,
+                 'SegVaeObserver':SegVaeObserver,
+                 'SegVaeActHistObserver':SegVaeActHistObserver,
+                 'SegVaeActObserver':SegVaeActObserver,
+                 'SegVaeHistObserver':SegVaeHistObserver,
+                 'ClipObserver':ClipObserver}

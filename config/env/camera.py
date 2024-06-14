@@ -32,6 +32,18 @@ right_cam =  dict(name='right_camera',
                  Rotation=(-30, 90, 0)
                  )
 
+left_cam2 =  dict(name='left_camera',
+                 **camera,                 
+                 Location=(0, -0.61, 1.675),
+                 Rotation=(-15, -90, 0)
+                 )
+
+right_cam2 =  dict(name='right_camera',
+                 **camera,                 
+                 Location=(0, 0.61, 1.675),
+                 Rotation=(-15, 90, 0)
+                 )
+
 back_cam = dict(name='back_camera',
                  **camera,               
                  Location=(-0.98, 0, 1.675),

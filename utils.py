@@ -8,12 +8,12 @@ import math
 import json
 import pickle
 
-import gym
+import gymnasium as gym
 import numpy as np
 import pygame
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.logger import HParam
-
+from typing import Dict, Any, Union, Callable
 from stable_baselines3.common.results_plotter import load_results, ts2xy, plot_results
 import numpy as np
 import os
@@ -47,7 +47,11 @@ def write_json(data, path):
         if isinstance(value, dict):
             return {k: serialize_value(v) for k, v in value.items()}
         elif callable(value):
-            return value.__str__()
+            try:
+                name = value.__str__()
+            except:
+                name = value.__name__
+            return name
         else:
             return value
 
@@ -156,8 +160,27 @@ class VideoRecorderCallback(BaseCallback):
     def _on_training_end(self) -> None:
         self.video_recorder.release()
 
+def linear_schedule(initial_value: Union[float, str]) -> Callable[[float], float]:
+    """
+    Linear learning rate schedule.
 
-def lr_schedule(initial_value: float, end_value: float, rate: float):
+    :param initial_value: (float or str)
+    :return: (function)
+    """
+    if isinstance(initial_value, str):
+        initial_value = float(initial_value)
+
+    def func(progress_remaining: float) -> float:
+        """
+        Progress will decrease from 1 (beginning) to 0
+        :param progress_remaining: (float)
+        :return: (float)
+        """
+        return progress_remaining * initial_value
+
+    return func
+
+def exp_schedule(initial_value: float, end_value: float, rate: float):
     """
     Learning rate schedule:
         Exponential decay by factors of 10 from initial_value to end_value.
@@ -180,8 +203,8 @@ def lr_schedule(initial_value: float, end_value: float, rate: float):
 
         return end_value + (initial_value - end_value) * (10 ** (rate * math.log10(progress_remaining)))
 
-    func.__str__ = lambda: f"lr_schedule({initial_value}, {end_value}, {rate})"
-    lr_schedule.__str__ = lambda: f"lr_schedule({initial_value}, {end_value}, {rate})"
+    func.__str__ = lambda: f"exp_schedule({initial_value}, {end_value}, {rate})"
+    exp_schedule.__str__ = lambda: f"exp_schedule({initial_value}, {end_value}, {rate})"
 
     return func
 

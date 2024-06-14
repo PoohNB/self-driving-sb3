@@ -22,8 +22,8 @@ class VencoderWrapper():
         print('===== Encoder =====')
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"using {self.device}")
-
-        self.model = Encoder(latent_dims=latent_dims)
+        self.latent_dims = latent_dims 
+        self.model = Encoder(latent_dims=self.latent_dims)
         self.model.load(model_path)
         self.model.eval()
 

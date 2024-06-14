@@ -10,3 +10,5 @@ segmentation/tao_model
 environment/rewardmask
 RLmodel
 recorded
+optuna_trials
+env_photo

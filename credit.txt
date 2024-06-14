@@ -1,3 +1,4 @@
 https://github.com/alberto-mate/CARLA-SB3-RL-Training-Environment
 https://github.com/idreesshaikh/Autonomous-Driving-in-Carla-using-Deep-Reinforcement-Learning.git
+https://github.com/CppMaster/SC2-AI.git
 siraphob

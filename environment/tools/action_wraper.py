@@ -94,3 +94,6 @@ class DiscretizeAction:
         self.previous_steer = new_steer
         return float(new_steer),float(new_throttle),0
 
+action_wrapper_type = {'OriginAction':OriginAction,
+                       'LimitAction':LimitAction,
+                       'DiscretizeAction':DiscretizeAction}
