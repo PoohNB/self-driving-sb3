@@ -6,6 +6,11 @@ fbm2f_fp16 =dict(model_repo="facebook/mask2former-swin-large-mapillary-vistas-se
                             label_mapping=mask2former_labelmap,
                             crop=(512,1024))
 
+fbm2f_fp16_1280 =dict(model_repo="facebook/mask2former-swin-large-mapillary-vistas-semantic",
+                            fp16=True,
+                            label_mapping=mask2former_labelmap,
+                            crop=(640,1280))
+
 fbm2f =dict(model_repo="facebook/mask2former-swin-large-mapillary-vistas-semantic",
                             fp16=False,
                             label_mapping=mask2former_labelmap,

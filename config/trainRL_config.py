@@ -71,7 +71,7 @@ env_config3 = dict(car_spawn=ait_football_spawn,
 manual_env_config = dict(car_spawn=ait_football_spawn,
                             spawn_mode='static',
                             env_config = dict(**env_config_base,max_step =500),
-                            cam_config_list=[front_cam,left_cam2,right_cam2], 
+                            cam_config_list=[front_cam], 
                             discrete_actions = [[-0.6,0.4],[-0.1,0.56],[0,0.6],[0,0.4],[0,0],[0.1,0.56],[0.6,0.4]],
                             seed=2024,
                             rand_weather=False)
@@ -111,7 +111,7 @@ ENV4RNN = dict(observer_config=observer_no_hist,
             rewarder_config = rewarder_maskv2)
 
 MANUAL_ENV = dict(observer_config=observer_no_hist,
-            seg_config=fbm2f_fp16,
+            seg_config=fbm2f_fp16_1280,
             vencoder_config=vencoder32,
             decoder_config=decoder32,
             env_config=manual_env_config,

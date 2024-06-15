@@ -61,8 +61,8 @@ from __future__ import print_function
 # -- find carla module ---------------------------------------------------------
 # ==============================================================================
 
-from config.env.spawn_points import ait_football_spawn
-car_spawn = ait_football_spawn
+
+car_spawn = None
 from utils_backup.tools import carla_point
 import glob
 import os

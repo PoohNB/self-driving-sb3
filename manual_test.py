@@ -4,7 +4,7 @@ from config.trainRL_config import MANUAL_ENV
 from environment.tools.env_wrapper import GymWrapper
 import cv2
 import time
-sync = False
+sync = True
 env = manualctrlenv_from_config(MANUAL_ENV,sync)
 try:
 
@@ -17,6 +17,7 @@ try:
         # action, _states = model.predict(obs.reshape((1,272)))#
         obs, reward, done, info = env.step()
         step+=1
+        time.sleep(1)
         # if episode >0:
         #     time.sleep(1)
 
