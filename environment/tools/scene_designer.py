@@ -6,6 +6,8 @@ import random
 import matplotlib.pyplot as plt
 import os
 import json
+from typing import List, Tuple, Dict,Union
+from environment.tools.actor_wrapper import VehicleActor,PedestrianActor
 
 def get_vehicle_shapes_from_blueprint(world,veh_names):
 
@@ -51,6 +53,7 @@ class LocateObject:
         self.shapes_file = os.path.join(os.path.dirname(__file__),"save/obj_sizes.json")
         self.load_vehicle_shapes()
         self.object_list = []
+        self.click_history = []
 
     def add_object(self, obj_sizes):
         # Add the object size data to self.vehicle_shape
@@ -59,19 +62,32 @@ class LocateObject:
         self.vehicle_shapes.update(obj_sizes)
         self.save_vehicle_shapes()
 
-    def place_on_map(self, obj_loc):
+    def place_on_map(self, obj_info):
         # obj_loc is a tuple that contains name and location
-        # example: (name, (x, y), yaw)
-        if obj_loc[0] not in self.vehicle_shapes.keys():
-            raise Exception(f"No object named {obj_loc[0]}")
-        self.object_list.append(obj_loc)
+        # example: (name, (x, y), yaw, color,call_areas)
+        if obj_info[0] not in self.vehicle_shapes.keys():
+            raise Exception(f"No object named {obj_info[0]}")
+        if len(obj_info) ==4:
+            obj_info.append(None)
+        if len(obj_info) != 5 or not isinstance(obj_info[0],str) or len(obj_info[1]) != 2 or not isinstance(obj_info[2],int):
+            raise Exception(f"the obj_info have to be in this format (name, (x, y), yaw, color) not {obj_info}")
+        if obj_info[3] == "red":
+            obj_info[3] = (0,0,255)
+        elif obj_info[3] == "blue":
+            obj_info[3] = (255,0,0)
+        elif obj_info[3] == "green":
+            obj_info[3] = (0,255,0)
+        else:
+            if len(obj_info[3]) != 3:
+                raise Exception("invalid color")
+        self.object_list.append(obj_info)
 
-    def plot(self):
+    def plot(self,show_index=False,call_area=False):
         # Create a copy of the map to plot the objects on
         map_copy = self.map_img.copy()
 
         for idx,obj in enumerate(self.object_list):
-            name, (x, y), yaw = obj
+            name, (x, y), yaw , color, call_list = obj
             width, length = self.vehicle_shapes[name]
 
             # Convert position from meters to pixels
@@ -87,11 +103,17 @@ class LocateObject:
             rect_corners = np.int0(rect_corners)
 
             # Draw the rectangle on the map
-            cv2.drawContours(map_copy, [rect_corners], 0, (0, 0, 255), -1)  # Red color for objects
+            cv2.drawContours(map_copy, [rect_corners], 0, color, -1)  # Red color for objects
+
+            if call_area:
+                if call_list is not None: 
+                    for rad in call_list:
+                        cv2.circle(map_copy, (x_pix, y_pix), int(rad*self.m), (255,255,255),1)
 
             # Label the object with its index
-            label_position = (x_pix + 7, y_pix - 7)  # Adjust label position
-            cv2.putText(map_copy, str(idx + 1), label_position, cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 5)
+            if show_index:
+                label_position = (x_pix + 7, y_pix - 7)  # Adjust label position
+                cv2.putText(map_copy, str(idx + 1), label_position, cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 5)
 
 
         # Convert BGR image to RGB
@@ -103,6 +125,46 @@ class LocateObject:
         plt.title('Map with Objects')
         plt.axis('off')
         plt.show()
+
+    def get_click_history(self):
+        return self.click_history
+    
+    def show_map_with_click(self):
+        def update_view(x, y):
+            """ Update the displayed map region based on the trackbar positions. """
+            map_copy = self.map_img[y:y+viewport_height, x:x+viewport_width]
+            cv2.imshow('Map', map_copy)
+
+        def mouse_callback(event, x, y, flags, param):
+            if event == cv2.EVENT_LBUTTONDOWN:
+                x_global = x + cv2.getTrackbarPos('Horizontal', 'Map')
+                y_global = y + cv2.getTrackbarPos('Vertical', 'Map')
+                x_meters = (x_global - self.ref_point[1]) / self.m
+                y_meters = (y_global - self.ref_point[0]) / self.m
+                print(f"Clicked at pixel: ({x_global}, {y_global}), meters: ({x_meters:.2f}, {y_meters:.2f})")
+                self.click_history.append((x_meters,y_meters))
+                
+                # Draw a small red circle at the clicked location
+                cv2.circle(self.map_img, (x_global, y_global), 5, (0, 0, 255), -1)
+                update_view(cv2.getTrackbarPos('Horizontal', 'Map'), cv2.getTrackbarPos('Vertical', 'Map'))
+
+        max_x = self.map_img.shape[1]
+        max_y = self.map_img.shape[0]
+        viewport_width = 800  # Width of the visible region
+        viewport_height = 600  # Height of the visible region
+
+        cv2.namedWindow('Map')
+        cv2.createTrackbar('Horizontal', 'Map', 0, max_x - viewport_width, lambda x: update_view(x, cv2.getTrackbarPos('Vertical', 'Map')))
+        cv2.createTrackbar('Vertical', 'Map', 0, max_y - viewport_height, lambda y: update_view(cv2.getTrackbarPos('Horizontal', 'Map'), y))
+        
+        cv2.setMouseCallback('Map', mouse_callback)
+        
+        # Initial view update
+        update_view(0, 0)
+
+        # Wait until a key is pressed to close the window
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
 
     def clear_object(self):
@@ -132,65 +194,191 @@ class LocateObject:
             self.save_vehicle_shapes()
 
 
-
-
 class ObjectPlacer:
-    def __init__(self, world, object_blueprint, available_locations, density=0.5):
-        """
-        Initialize the ObjectPlacer.
 
-        :param world: The CARLA world object.
-        :param object_blueprint: The blueprint of the object to place.
-        :param available_locations: A list of available locations where objects can be placed.
-        :param num_objects: The number of objects to spawn and manage.
-        """
-        if density >1:
-            raise Exception("density range is 0 to 1")
-        elif density == 0:
-            print("no object spawn")
+    def __init__(self,
+                 world,
+                 scene_config_list: List[Dict],
+                 rest_area: Union[List,Tuple]):
 
         self.world = world
-        self.object_blueprint = object_blueprint
-        self.available_locations = available_locations
-        self.num_objects = int(len(self.available_locations)*density)
-        self.spawned_objects = []
-        self._spawn_objects()
 
-    def _spawn_objects(self):
-        """
-        Spawn objects at the start and keep references to them.
-        """
+        self.configs = scene_config_list
 
-        random_num = random.sample(range(len(self.available_locations)), self.num_objects)
-        for n in random_num:
-            transform = carla.Transform(carla.Location(*self.available_locations['Location'][n]), carla.Rotation(*self.available_locations['Rotation'][n]))
-            obj = self.world.spawn_actor(self.object_blueprint, transform)
-            self.spawned_objects.append(obj)
+        self.actor_names = self.get_names()
+        
+        self.road_area_lookups = []
+        self.scenes = []
+        c = 0
+        self.max_values = 0
+        for cf in self.configs:
+            self.road_area_lookups.extend([self.roadpoint_preprocess(loc) for loc in cf['available_loc']])
+            idx_list = list(range(c, c+len(cf['available_loc'])))
+            c += len(cf['available_loc'])
+            if cf['values'] > self.max_values:
+                self.max_values = cf['values']
+            self.scenes.append({'idx': idx_list, 'values': cf['values']})
+        self.rest_area_lookups = self.restpoint_preprocess(rest_area)
+        if self.max_values > len(self.rest_area_lookups):
+            raise ValueError("number of actor more than rest area")
+        self.occupied_rest= [-1] * len(self.rest_area_lookups)
+        self.occupied_road= [-1] * len(self.road_area_lookups)
+        self.spawn_actor()
+    
+    def spawn_actor(self):
+        # self.actors = [random.choice(self.world.try_spawn(bp,)) for bp in self.actor_names]
+        raise NotImplementedError("have to implement method spawn_actor in subclass")
+    
+    def get_names(self):
+        # return self.bp.filter('vehicle.*.*')
+        raise NotImplementedError("have to implement method get_names in subclass")
+    
+    def restpoint_preprocess(self, rest_area):
+        # return rest_area
+        raise NotImplementedError("have to implement method restpoint_preprocess in subclass")
+    
+    def roadpoint_preprocess(self,loc):
+        # return loc
+        raise NotImplementedError("have to implement method roadpoint_preprocess in subclass")
+ 
 
-    def reset(self):
-        """
-        Reset the scene by moving objects to new random locations.
-        """
-        chosen_locations = random.sample(self.available_locations, self.num_objects)
-        for obj, location in zip(self.spawned_objects, chosen_locations):
-            transform = carla.Transform(location)
-            obj.set_transform(transform)
+    def randomly_place(self, sample_idx: List[int]):
+        """Randomly place cars or pedestrians in specified indices."""
 
-    def clear_objects(self):
-        """
-        Destroy all spawned objects.
-        """
-        for obj in self.spawned_objects:
-            if obj.is_alive:
-                obj.destroy()
-        self.spawned_objects = []
+        empty, parked = [], []
+        for i, j in enumerate(self.occupied_rest):
+            (empty if j < 0 else parked).append(i)
 
-    def set_available_locations(self, new_locations):
-        """
-        Update the available locations for object placement.
+        placing_idx = []
+        removing_idx = []
+        for i, j in enumerate(self.occupied_road):
+            if j < 0:
+                if i in sample_idx:
+                    placing_idx.append(i)
+            else:
+                if i not in sample_idx:
+                    removing_idx.append(i)
 
-        :param new_locations: A new list of available locations.
-        """
-        self.available_locations = new_locations
+        for i in placing_idx:
+            if removing_idx:
+                j = random.choice(removing_idx)
+                removing_idx.remove(j)
+                obj_idx = self.occupied_road[j]
+                self.occupied_road[j] = -1
+            elif parked:
+                j = random.choice(parked)
+                parked.remove(j)
+                obj_idx = self.occupied_rest[j]
+                self.occupied_rest[j] = -1
+                empty.append(j)
 
+            self.actors[obj_idx].move(self.road_area_lookups[i])
+            self.occupied_road[i] = obj_idx
+
+        for i in removing_idx:
+            j = random.choice(empty)
+            empty.remove(j)
+            obj_idx = self.occupied_road[i]
+            self.occupied_road[i] = -1
+            self.actors[obj_idx].move(self.rest_area_lookups[j])
+            self.occupied_rest[j] = obj_idx
+
+    def reset(self,scene_idx:int):
+        scene = self.scenes[scene_idx]
+        sample_idx = random.sample(scene['idx'],scene['values'])
+        self.randomly_place(sample_idx)
+
+
+class VehiclePlacer(ObjectPlacer):
+
+    def __init__(self,
+                world,
+                scene_config_list: List[Dict],
+                rest_area: List[Dict]):
+        
+        super().__init__(world,scene_config_list,rest_area)
+
+    def get_names(self) -> List:
+        """Retrieve vehicle blueprints."""
+        veh_list = [
+            "vehicle.audi.etron", "vehicle.audi.tt", "vehicle.mercedes.coupe",
+            "vehicle.mercedes.coupe_2020", "vehicle.mini.cooper_s_2021",
+            "vehicle.tesla.model3", "vehicle.bh.crossbike",
+            "vehicle.diamondback.century", "vehicle.gazelle.omafiets"
+        ]
+        return veh_list
+
+    def restpoint_preprocess(self, area:List) -> carla.Transform:
+        """Convert a configuration dictionary into a CARLA transform."""
+        return [carla.Transform(carla.Location(*config['Location']), carla.Rotation(*config['Rotation'])) for config in area]
+        
+
+    def roadpoint_preprocess(self, loc: Tuple[float, float]) -> carla.Waypoint:
+        """Get the closest waypoint to a given location."""
+        carla_map = self.world.get_map()
+        carla_location = carla.Location(*loc, 0.1)
+        return carla_map.get_waypoint(carla_location, project_to_road=True, lane_type=(carla.LaneType.Driving)).transform
+
+    def spawn_actor(self):
+        """Randomly Select and Spawn vehicles in the environment."""
+        selected_veh = [random.choice(self.actor_names) for _ in range(self.max_values)]
+        self.actors = []
+        for i, name in enumerate(selected_veh):
+            veh = VehicleActor(self.world, name, self.rest_area_lookups[i])
+            if veh is not None:
+                self.actors.append(veh)
+                self.occupied_rest[i] = i
+    
+
+
+
+class PedestriansPlacer(ObjectPlacer):
+
+    def __init__(self,
+            world,
+            scene_config_list: List[Dict],
+            rest_area: Tuple[Tuple[float, float], Tuple[float, float]]):
+        
+        super().__init__(world,scene_config_list,rest_area)
+
+    
+    def get_names(self):
+        bp = self.world.get_blueprint_library()
+        ped_bp = bp.filter('walker.pedestrian.*')
+
+        return [blueprint.id for blueprint in ped_bp]
+
+    def spawn_actor(self):
+        """Spawn pedestrians in the environment."""
+        selected_ped = [random.choice(self.actor_names) for _ in range(self.max_values)]
+        self.actors = []
+        for i, name in enumerate(selected_ped):
+            self.actors.append(PedestrianActor(self.world, name, self.rest_area_lookups[i]))
+            self.occupied_rest[i] = i
+
+    def restpoint_preprocess(self, area: Tuple[Tuple[float, float], Tuple[float, float]], cell_size: int = 3) -> List[Tuple[float, float]]:
+        """Generate a grid of available positions within the defined area."""
+        top_left, bottom_right = area
+        x_cells = int((bottom_right[0] - top_left[0]) // cell_size)
+        y_cells = int((bottom_right[1] - top_left[1]) // cell_size)
+        transforms = []
+        count = 0
+        for i in range(x_cells):
+            for j in range(y_cells):
+                transforms.append(carla.Transform(carla.Location(*(top_left[0] + i * cell_size, top_left[1] + j * cell_size, 0.2))))
+                count += 1
+                if count >= self.max_values:
+                    break
+            if count >= self.max_values:
+                break
+        return transforms
+    
+    def roadpoint_preprocess(self, loc: Tuple[float, float]) -> carla.Transform:
+        """Generate a random transform for a pedestrian at a given position."""
+        return carla.Transform(
+            carla.Location(*loc, 0.2),
+            carla.Rotation(0, random.randint(0, 359), 0)
+        )
+        
+        
 

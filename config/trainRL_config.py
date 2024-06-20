@@ -31,50 +31,23 @@ observer_no_hist = dict(name="SegVaeActObserver",
                  config=dict(num_img_input = 1,
                             act_num=2,))
 
-# rewarder =================================================
-
-rewarder_mask = dict(name="RewardPath",
-                     config = dict(mask_path = "environment/rewardmask/ait_map/ait_football.png"))
-
-rewarder_mask_tick = dict(name="RewardPath",
-                     config = dict(mask_path = "environment/rewardmask/ait_map/ait_football_thick.png"))
-
-rewarder_maskv2 = dict(name="RewardPath",
-                     config = dict(mask_path = "environment/rewardmask/ait_map/ait_footballv2.png")) 
 
 # env_config ===============================================================
 
-env_config1 = dict(car_spawn=ait_football_spawn,
-                            spawn_mode='static',
-                            env_config = dict(**env_config_base,max_step =500),
-                            cam_config_list=[front_cam], 
-                            discrete_actions = None,
-                            seed=2024,
-                            rand_weather=False)
+env_config1 = dict(env_setting = dict(**env_config_base,max_step =500),
+                    cam_config_list=[front_cam], 
+                    discrete_actions = None,
+                    coach_config = ait_fb_scene_outer_only,
+                    seed=2024,
+                    rand_weather=False)
+  
+manual_env_config = dict(env_setting = dict(**env_config_base,max_step =500),
+                        cam_config_list=[front_cam], 
+                        discrete_actions = [[-0.6,0.4],[-0.1,0.56],[0,0.6],[0,0.4],[0,0],[0.1,0.56],[0.6,0.4]],
+                        coach_config = ait_fb_scene,
+                        seed=2024,
+                        rand_weather=False)
 
-env_config2 = dict(car_spawn=ait_football_spawn,
-                            spawn_mode='random',
-                            env_config = dict(**env_config_base,max_step =500),
-                            cam_config_list=[front_cam], 
-                            discrete_actions = None,
-                            seed=2024,
-                            rand_weather=False)
-
-env_config3 = dict(car_spawn=ait_football_spawn,
-                            spawn_mode='random',
-                            env_config = dict(**env_config_base,max_step =500),
-                            cam_config_list=[front_cam], 
-                            discrete_actions = None,
-                            seed=2024,
-                            rand_weather=True)
-
-manual_env_config = dict(car_spawn=ait_football_spawn,
-                            spawn_mode='static',
-                            env_config = dict(**env_config_base,max_step =500),
-                            cam_config_list=[front_cam], 
-                            discrete_actions = [[-0.6,0.4],[-0.1,0.56],[0,0.6],[0,0.4],[0,0],[0.1,0.56],[0.6,0.4]],
-                            seed=2024,
-                            rand_weather=False)
 # [[0.0,0],[0.1,0],[0.2,0],[0.3,0],[0.4,0],[0.5,0],[0.6,0],[0.7,0],[0.8,0]],
 # [-0.6,0.4],[-0.1,0.56],[0,0.6],[0,0.4],[0,0],[0.1,0.56],[0.6,0.4]
 # all_config =======================================
@@ -83,40 +56,28 @@ ENV1 = dict(observer_config=observer1,
             vencoder_config=vencoder32,
             decoder_config=decoder32,
             env_config=env_config1,
-            actionwrapper= limitaction1,
-            rewarder_config = rewarder_mask,)
-
-ENV2 = dict(observer_config=observer1,
-            seg_config=fbm2f_fp16,
-            vencoder_config=vencoder32,
-            decoder_config=None,
-            env_config=env_config1,
-            actionwrapper= limitaction2,
-            rewarder_config = rewarder_mask_tick)
+            actionwrapper= limitaction1,)
 
 ENV3 = dict(observer_config=observer1,
             seg_config=fbm2f_fp16,
             vencoder_config=vencoder32,
             decoder_config=None,
             env_config=env_config1,
-            actionwrapper= limitaction2,
-            rewarder_config = rewarder_maskv2)
+            actionwrapper= limitaction2,)
 
 ENV4RNN = dict(observer_config=observer_no_hist,
             seg_config=fbm2f_fp16,
             vencoder_config=vencoder32,
             decoder_config=None,
             env_config=env_config1,
-            actionwrapper= limitaction2,
-            rewarder_config = rewarder_maskv2)
+            actionwrapper= limitaction2)
 
 MANUAL_ENV = dict(observer_config=observer_no_hist,
             seg_config=fbm2f_fp16_1280,
             vencoder_config=vencoder32,
             decoder_config=decoder32,
             env_config=manual_env_config,
-            actionwrapper= originaction,
-            rewarder_config = rewarder_maskv2)
+            actionwrapper= originaction)
 
 
 # train experiment config =======================================
@@ -127,12 +88,6 @@ RL1 = dict(env=ENV1,
                               num_checkpoints=5,
                               save_path="RLmodel")))
 
-RL_test = dict(env=ENV2,
-           train=dict(
-            algorithm=dict(method="SAC",model_config=SAC1,seed=2024),
-            train_config=dict(total_timesteps=50000,
-                              num_checkpoints=5,
-                              save_path="RLmodel")))
 
 RL_SAC_v2 = dict(env=ENV3,
            train=dict(

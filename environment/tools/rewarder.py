@@ -40,7 +40,10 @@ class RewardDummy:
 
 class RewardPath:
 
-    def __init__(self, mask_path):
+    def __init__(self,
+                  mask_path,
+                  vehicle,
+                  collision_sensor):
         # reference point is position 0,0 in carla
         # scale is meter/pixel
         scale_path = os.path.join(os.path.dirname(mask_path),"scale.json")
@@ -49,17 +52,13 @@ class RewardPath:
         self.m = data['scale']
         self.ref_point = data['ref_point']
         self.route = cv2.imread(mask_path, cv2.IMREAD_COLOR)
-        self.prev_steer = 0
-        self.terminate = False
-        self.reason = ""
-        self.colli = None
+        self.car = vehicle
+        self.colli = collision_sensor
+
         self.out_of_road_count_limit = 30
         self.staystill_limit = 25
         self.reward_scale = 4
         self.minimum_distance = 0.015
-
-    def apply_car(self,carla_car):
-        self.car = carla_car
 
     def reset(self):
         self.started=False
@@ -68,6 +67,7 @@ class RewardPath:
         self.terminate = False
         self.reason = ""
         self.prev_position = None
+        self.prev_steer = 0
         # self.prev_area = 1 # 1 is blue 2 is black 3 is red 4 is green
 
     def _get_car_position_on_map(self, car_position):
@@ -76,9 +76,6 @@ class RewardPath:
         img_x = int(self.ref_point[1] +x * self.m)
         img_y = int(self.ref_point[0] +y * self.m)
         return img_x, img_y
-    
-    def apply_collision_sensor(self,sensor):
-        self.colli = sensor
 
     def __call__(self, being_obstructed=False):
         """
@@ -88,7 +85,7 @@ class RewardPath:
         - turning
         """
         if self.colli is None:
-            raise Exception("not apply collision sensor yet")
+            raise Exception("rewarder not apply collision sensor yet")
 
         # terminate when coli with something that not road or road label
         if self.colli.collision:
@@ -163,11 +160,7 @@ class RewardPath:
         # small reward when can keep to steer at 0 for make it try to keep it strigth
         reward += norm_dist(curr_steer) * distance * self.reward_scale * 0.4
 
-        return reward
-    
-    def get_terminate(self):
-
-        return self.terminate,self.reason
+        return reward,self.terminate,self.reason
     
 class RewardCoins:
 

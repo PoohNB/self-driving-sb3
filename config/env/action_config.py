@@ -1,4 +1,4 @@
-# Example
+# Example of action config
 
 
 limitaction1 = dict(name="LimitAction",

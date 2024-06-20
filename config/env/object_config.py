@@ -1,3 +1,4 @@
+
 ait_football_car_outer = dict(available_loc = [dict(Location=(),Rotation=()),
                                          dict(Location=(),Rotation=())],
                 type = "car")

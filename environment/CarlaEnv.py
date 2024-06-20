@@ -6,6 +6,8 @@ from environment.tools.hud import get_actor_display_name
 from environment.tools.actor_wrapper import *
 from environment.tools.controllor import PygameControllor
 from environment.tools.scene_designer import *
+from environment.tools.coach import Coach
+from environment.tools.utils import calculate_distance
 import carla
 import random
 import numpy as np
@@ -15,9 +17,6 @@ import random
 import weakref
 import cv2
 
-# sensor_transforms = {
-#     "spectator": carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15)),
-#     "dashboard": carla.Transform(carla.Location(x=1.6, z=1.7)),}
 
 class CarlaImageEnv(gym.Env):
 
@@ -45,11 +44,9 @@ class CarlaImageEnv(gym.Env):
 
     def __init__(self,
                  observer,
-                 rewarder,   
-                 car_spawn,
-                 spawn_mode="random",
+                 coach_config,
                  action_wrapper = OriginAction(), 
-                 env_config =dict(**env_config_base,max_step=1000),
+                 env_setting =dict(**env_config_base,max_step=1000),
                  cam_config_list=[front_cam], 
                  discrete_actions = None,
                  activate_render = False,
@@ -65,20 +62,18 @@ class CarlaImageEnv(gym.Env):
         
         random.seed(seed)
         # param ======================================================================================
-
+        
         self.observer = observer
         self.action_wraper = action_wrapper
-        self.rewarder = rewarder
         self.discrete_actions = discrete_actions
         self.activate_render = activate_render
         self.render_raw = render_raw
         self.render_observer  = render_observer 
         self.rand_weather = rand_weather
 
-        self.env_config = env_config
-        self.max_step = env_config['max_step']
-        self.env_config = env_config
-        self.fps = 1/env_config['delta_frame']
+        self.env_config = env_setting
+        self.max_step = env_setting['max_step']
+        self.fps = 1/env_setting['delta_frame']
 
         self.closed_env = False
         self.episode_idx =0
@@ -95,17 +90,14 @@ class CarlaImageEnv(gym.Env):
 
         self.observation_space = self.observer.gym_obs()
             
-        self.world = World(env_config['host'],env_config['port'],env_config['delta_frame'])
+        self.world = World(env_setting['host'],env_setting['port'],env_setting['delta_frame'])
+        self.spawn_points = self.world.get_map().get_spawn_points()
 
         try:
             # create actor
             self.car = VehicleActor(self.world,
-                            env_config['vehicle'],
-                            spawn_points=car_spawn)
-            
-            self.car.apply_mode(spawn_mode)
-            
-            self.rewarder.apply_car(self.car)
+                            env_setting['vehicle'],
+                            self.spawn_points[0])
             
             # dash cam ===
             self.dcam = []
@@ -117,13 +109,14 @@ class CarlaImageEnv(gym.Env):
 
             # Collision sensor ===
             self.colli_sensor = CollisionSensor(self.world,self.car)
-            self.rewarder.apply_collision_sensor(self.colli_sensor)
+            weak_self = weakref.ref(self)
+            self.coach = Coach(**coach_config,
+                                      env=weak_self)
 
             if self.activate_render:
                 # cam for save video and visualize ===
                 self.spectator = SpectatorCamera(self.world,self.car,spectator_cam)
                 # pygame display ==
-                weak_self = weakref.ref(self)
                 self.pygamectrl = PygameControllor(spectator_cam,weak_self)  
         except Exception as e:
             print(e)
@@ -142,19 +135,19 @@ class CarlaImageEnv(gym.Env):
         self.total_distance=0
         self.reward = 0
         self.prev_pos = None
-        # reset actor   
-        self.rewarder.reset()
+        # reset actor, and coach
+        self.maneuver = self.coach.reset()
         self.world.reset_actors() 
         if self.rand_weather:
             self.world.random_wather()
-        # spawn obstacle===
         # advance step ====
         for _ in range(4):
             self.world.tick()
         self.update_infos()
         # get the initial observation ========================================================
         self.list_images = self.world.get_all_obs()
-        self.obs = self.observer.reset(self.list_images)
+        self.latent = self.observer.reset(self.list_images)
+        self.obs = np.concatenate((self.latent,self.maneuver))
         if self.activate_render:
             self.spec_image = self.spectator.get_obs()
             self.render()
@@ -182,6 +175,7 @@ class CarlaImageEnv(gym.Env):
         control = carla.VehicleControl(throttle=throttle, steer=steer, brake=brake,
                                        hand_brake=False, reverse=False, manual_gear_shift=False, gear=0)
         
+        self.coach.set_movement()
         # control = carla.VehicleAckermannControl(steer=steer, steer_speed=0.3 ,speed=throttle, acceleration=3.6, jerk=0.1)
   
 
@@ -191,21 +185,21 @@ class CarlaImageEnv(gym.Env):
         self.car.apply_control(control)
         # self.car.apply_ackermann_control(control)
 
+        # coach eval
+        self.maneuver,self.reward,terminate,reason = self.coach.review()
+        self.total_reward+=self.reward
+
         # get image from camera
         self.list_images = self.world.get_all_obs()
-        self.obs = self.observer.step(imgs = self.list_images,act=action)
-            
-        # get reward        
-        self.reward = self.rewarder(being_obstructed=False)
-        self.total_reward+=self.reward
-        terminate,reason = self.rewarder.get_terminate()
+        self.latent = self.observer.step(imgs = self.list_images,act=action)
+        self.obs = np.concatenate((self.latent,self.maneuver))     
 
         # basic termination -> colision or reach max step or out of the rount more than n step 
         done = self.colli_sensor.collision or self.step_count > self.max_step or self.closed_env or terminate
 
         # get info
         info = {"step":self.step_count,
-                "location":(self.car_position.x,self.car_position.y),
+                "location":f"({self.car_position[0]:.2f},{self.car_position[1]:.2f})",
                 "reward":self.reward,
                 "total_reward":self.total_reward,
                 "distance":self.distance,
@@ -234,13 +228,13 @@ class CarlaImageEnv(gym.Env):
         
     def get_input_states(self):
         return self.obs
-     
+    
     def update_infos(self):
-        self.car_position = self.car.get_location()
+        self.car_position = self.car.get_xy_location()
         if self.prev_pos is None:
-            self.prev_pos = (self.car_position.x,self.car_position.y)
-        self.distance = self.car.calculate_distance((self.prev_pos),(self.car_position.x,self.car_position.y))
-        self.prev_pos= (self.car_position.x,self.car_position.y)
+            self.prev_pos = self.car_position
+        self.distance = calculate_distance((self.prev_pos),self.car_position)
+        self.prev_pos= self.car_position
         self.total_distance += self.distance
         self.speed = self.car.get_xy_velocity()*3.6
         self.total_speed +=self.speed
@@ -283,11 +277,21 @@ class CarlaImageEnv(gym.Env):
             for resized_img in resized_images:
                 self.spec_image[y_offset:y_offset + target_height, x_offset:x_offset + new_width] = resized_img
                 y_offset += target_height
+        
+        if self.maneuver > 0:
+            manv = "right"
+        elif self.maneuver <0:
+            manv = "left"
+        elif self.maneuver == 0:
+            manv = "forward"
+        else:
+            manv = "-"
 
         extra_info=[
             "Episode {}".format(self.episode_idx),
             "Step: {}".format(self.step_count),
             "",
+            f"Maneuver: {manv}"
             "Distance: % 7.3f m" % self.distance, 
             "Distance traveled: % 7d m" % self.total_distance,
             "speed:      % 7.2f km/h" % self.speed,

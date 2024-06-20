@@ -56,6 +56,9 @@ class CarlaActorBase:
     def __getattr__(self, name):
         """Relay missing methods to underlying carla actor"""
         return getattr(self.actor, name)
+    
+    def reset(self):
+        pass
 
 
 class CameraBase(CarlaActorBase):
@@ -311,29 +314,18 @@ class VehicleActor(CarlaActorBase):
     def __init__(self,
                  wrapped_world,
                  vehicle_name,
-                 spawn_points,
-                 startpoint=0,
-                 change_points_ep = 100,
-                 mode = "static"):
-        
-        self.st = startpoint
+                 spawn_point):
+          
         self.world = wrapped_world.get_carla_world()
-        self.spawn_points = [carla.Transform(carla.Location(*sp['Location']), carla.Rotation(*sp['Rotation'])) for sp in spawn_points]
         blueprints = self.world.get_blueprint_library()
         bp_car = blueprints.filter(vehicle_name)[0]   
-        self.veh = self.world.spawn_actor(bp_car, self.spawn_points[0])
-        self.episode = 0
-        self.change_ep = change_points_ep
-        self.mode = mode
+        self.veh = self.world.try_spawn_actor(bp_car, spawn_point)
+        if self.veh is None:
+            print(f"Failed to spawn vehicle at Location (x={spawn_point.location.x:.2f}, y={spawn_point.location.y:.2f}, z={spawn_point.location.z:.2f})")
         self.traveled_dist = 0
 
         super().__init__(wrapped_world,self.veh,tag='car')
 
-    def apply_mode(self,mode):
-        if mode in ["static","random","change_point"]:
-            self.mode = mode
-        else:
-            print(f"no mode {mode} avilable")
 
     def get_xy_velocity(self):
         velocity_vector = self.veh.get_velocity()
@@ -342,45 +334,59 @@ class VehicleActor(CarlaActorBase):
         velocity_magnitude_xy = math.sqrt(vx**2 + vy**2)
 
         return velocity_magnitude_xy
+    
+    def get_xy_location(self):
+        loc = self.veh.get_location()
+        return (loc.x,loc.y)
+    
+    def move(self,transform):
+        self.veh.set_simulate_physics(False)
+        self.veh.set_transform(transform)
+        time.sleep(0.01)  # Optional, test if necessary
+        self.veh.set_simulate_physics(True)
 
 
     def get_carla_actor(self):
 
         return self.veh
     
-    @staticmethod
-    def calculate_distance(prev_pos:tuple,cur_pos:tuple):
-        """Calculate Euclidean distance between two positions."""
 
-        return math.sqrt((prev_pos[0] - cur_pos[0])**2 + (prev_pos[1] - cur_pos[1])**2)
+class PedestrianActor(CarlaActorBase):
+
+    def __init__(self,
+                 wrapped_world,
+                 people_name,
+                 spawn_point):
+          
+        self.world = wrapped_world.get_carla_world()
+        blueprints = self.world.get_blueprint_library()
+        bp_ped = blueprints.filter(people_name)[0]   
+        self.ped = self.world.try_spawn_actor(bp_ped, spawn_point)
+        if self.ped is None:
+            print(f"Failed to spawn pedestrian at Location (x={spawn_point.location.x:.2f}, y={spawn_point.location.y:.2f}, z={spawn_point.location.z:.2f})")
+
+        self.traveled_dist = 0
+
+        super().__init__(wrapped_world,self.ped,tag='pedestrian')
+
+
+    def get_carla_actor(self):
+
+        return self.ped
     
-    def reset(self):
-        """
-        teleport the car 
-        """
-        self.episode+=1
+    def move(self,transform):
+        self.ped.set_simulate_physics(False)
+        self.ped.set_transform(transform)
+        time.sleep(0.01)  # Optional, test if necessary
+        self.ped.set_simulate_physics(True)
 
-        self.select_point()
-        self.veh.set_simulate_physics(False)
-        self.veh.set_transform(self.spawn_points[self.st])
-        time.sleep(0.1)
-        self.veh.set_simulate_physics(True)
+    def get_xy_location(self):
+        loc = self.veh.get_location()
+        return (loc.x,loc.y)
 
-    def select_point(self):
-        """
-        if it reach another points or reach change points ep it will change start point to the next point
+    
 
-        """
-        if self.mode == "static":
-            pass
 
-        elif self.mode == "change_point":
-            if self.episode % self.change_ep ==0:
-                self.current_point=self.current_point+1
-            self.st = self.current_point%len(self.spawn_points)
-
-        elif self.mode == "random":
-            self.st = random.choice(range(len(self.spawn_points)))
 
 
 

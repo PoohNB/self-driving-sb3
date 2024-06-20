@@ -8,8 +8,6 @@ from autoencoder.vae_wrapper import VencoderWrapper,DecoderWrapper
 # donb't need vae_decoder if not reconstruct the latent
 from environment.tools.observer import observer_type
 
-# rewarder (object to calculate the reward for env)
-from environment.tools.rewarder import rewarder_type
 # action wrapper (object to post process the action like smooth, limit range or discretize)
 from environment.tools.action_wraper import action_wrapper_type
 
@@ -36,15 +34,12 @@ def env_from_config(config,RENDER):
                                                                 seg_model=seg_model,
                                                                 vae_decoder=vae_decoder,
                                                                 **config['observer_config']['config'])
-
-    rewarder = rewarder_type[config['rewarder_config']['name']](**config['rewarder_config']['config'])
   
 
     action_wrapper = action_wrapper_type[config['actionwrapper']['name']](**config['actionwrapper']['config'])
 
 
     env = CarlaImageEnv(observer=observer,
-                    rewarder=rewarder,
                     action_wrapper = action_wrapper,
                     activate_render = RENDER, 
                     render_raw=RENDER,
@@ -68,14 +63,11 @@ def manualctrlenv_from_config(config,sync):
                                                                 vae_decoder=vae_decoder,
                                                                 **config['observer_config']['config'])
 
-    rewarder = rewarder_type[config['rewarder_config']['name']](**config['rewarder_config']['config'])
-  
     
     action_wrapper = action_wrapper_type[config['actionwrapper']['name']](**config['actionwrapper']['config'])
 
 
     env = ManualCtrlEnv(observer=observer,
-                    rewarder=rewarder,
                     action_wrapper = action_wrapper,
                     sync = sync,
                     **config['env_config'])
