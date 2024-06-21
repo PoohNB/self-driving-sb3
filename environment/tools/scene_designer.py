@@ -295,8 +295,9 @@ class VehiclePlacer(ObjectPlacer):
                 world,
                 scene_config_list: List[Dict],
                 rest_area: List[Dict]):
-        
+        self.reverse = True
         super().__init__(world,scene_config_list,rest_area)
+        
 
     def get_names(self) -> List:
         """Retrieve vehicle blueprints."""
@@ -317,7 +318,12 @@ class VehiclePlacer(ObjectPlacer):
         """Get the closest waypoint to a given location."""
         carla_map = self.world.get_map()
         carla_location = carla.Location(*loc, 0.1)
-        return carla_map.get_waypoint(carla_location, project_to_road=True, lane_type=(carla.LaneType.Driving)).transform
+        transform = carla_map.get_waypoint(carla_location, project_to_road=True, lane_type=(carla.LaneType.Driving)).transform
+        if self.reverse:
+            transform.rotation.yaw += 180
+            if transform.rotation.yaw >= 360:
+                transform.rotation.yaw -= 360
+        return transform
 
     def spawn_actor(self):
         """Randomly Select and Spawn vehicles in the environment."""

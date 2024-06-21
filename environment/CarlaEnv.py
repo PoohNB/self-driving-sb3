@@ -63,6 +63,7 @@ class CarlaImageEnv(gym.Env):
         random.seed(seed)
         # param ======================================================================================
         
+        self.maneuvers_set = {-1:'left',0:'forword',1:'right'}
         self.observer = observer
         self.action_wraper = action_wrapper
         self.discrete_actions = discrete_actions
@@ -88,7 +89,15 @@ class CarlaImageEnv(gym.Env):
             print("using discret action")
             self.action_space = spaces.Discrete(len(discrete_actions))
 
-        self.observation_space = self.observer.gym_obs()
+        num_maneuver = len(coach_config['scene_configs'][0]['cmd_config']['configs'][0]['cmd'])
+
+        self.observation_space = spaces.Box(low=np.finfo(np.float32).min,
+                                                high=np.finfo(np.float32).max,
+                                                shape=(1, self.observer.len_latent+num_maneuver),
+                                                dtype=np.float32)
+        
+        print(f"observation space shape: {self.observation_space.shape}")
+        print(f"action space shape: {self.action_space.shape}")
             
         self.world = World(env_setting['host'],env_setting['port'],env_setting['delta_frame'])
         self.spawn_points = self.world.get_map().get_spawn_points()
@@ -117,10 +126,14 @@ class CarlaImageEnv(gym.Env):
                 # cam for save video and visualize ===
                 self.spectator = SpectatorCamera(self.world,self.car,spectator_cam)
                 # pygame display ==
-                self.pygamectrl = PygameControllor(spectator_cam,weak_self)  
+                self.pygamectrl = self.get_pygamecontroller()
         except Exception as e:
             print(e)
-            self.close()                                                                                                                                                            
+            self.close()  
+
+    def get_pygamecontroller(self):
+        weak_self = weakref.ref(self)  
+        return PygameControllor(spectator_cam,weak_self)                                                                                                                                                     
    
     def reset(self, *, seed=None, options=None):
 
@@ -135,7 +148,7 @@ class CarlaImageEnv(gym.Env):
         self.total_distance=0
         self.reward = 0
         self.prev_pos = None
-        # reset actor, and coach
+        # reset actor, and 
         self.maneuver = self.coach.reset()
         self.world.reset_actors() 
         if self.rand_weather:
@@ -147,6 +160,7 @@ class CarlaImageEnv(gym.Env):
         # get the initial observation ========================================================
         self.list_images = self.world.get_all_obs()
         self.latent = self.observer.reset(self.list_images)
+        # print(self.latent,self.maneuver)
         self.obs = np.concatenate((self.latent,self.maneuver))
         if self.activate_render:
             self.spec_image = self.spectator.get_obs()
@@ -278,21 +292,15 @@ class CarlaImageEnv(gym.Env):
                 self.spec_image[y_offset:y_offset + target_height, x_offset:x_offset + new_width] = resized_img
                 y_offset += target_height
         
-        if self.maneuver > 0:
-            manv = "right"
-        elif self.maneuver <0:
-            manv = "left"
-        elif self.maneuver == 0:
-            manv = "forward"
-        else:
-            manv = "-"
+
+        manv = self.maneuvers_set[self.maneuver[0]]
 
         extra_info=[
             "Episode {}".format(self.episode_idx),
             "Step: {}".format(self.step_count),
             "",
-            f"Maneuver: {manv}"
-            "Distance: % 7.3f m" % self.distance, 
+            f"Maneuver: {manv}",
+            "Distance from last step: % 7.3f m" % self.distance, 
             "Distance traveled: % 7d m" % self.total_distance,
             "speed:      % 7.2f km/h" % self.speed,
             "Reward: % 19.2f" % self.reward,

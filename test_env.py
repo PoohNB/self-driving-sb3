@@ -1,14 +1,13 @@
 from environment.loader import env_from_config
 
-from config.trainRL_config import RL1
+from config.trainRL_config import test_ENV
 from environment.tools.env_wrapper import GymWrapper
 import time
-CONFIG = RL1
-episodes = 2
-action = [0.0,0.6]
-CONFIG['env']['env_config']['seed'] =1231
+episodes = 1
+action = [0.0005,0.6]
+test_ENV['env_config']['seed'] =1231
 
-env = env_from_config(CONFIG['env'],True)
+env = env_from_config(test_ENV,True)
 env = GymWrapper(env)
 try:
 

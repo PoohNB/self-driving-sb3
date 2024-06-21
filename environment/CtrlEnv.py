@@ -14,12 +14,13 @@ from gymnasium import spaces
 import random
 import weakref
 import cv2
+from environment.CarlaEnv import CarlaImageEnv
 
 # sensor_transforms = {
 #     "spectator": carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15)),
 #     "dashboard": carla.Transform(carla.Location(x=1.6, z=1.7)),}
 
-class ManualCtrlEnv():
+class ManualCtrlEnv(CarlaImageEnv):
 
     """
     open-ai environment for work with carla simulation server
@@ -45,126 +46,39 @@ class ManualCtrlEnv():
 
     def __init__(self,
                  observer,
-                 rewarder,   
-                 car_spawn,
-                 spawn_mode="random",
+                 coach_config,
                  action_wrapper = OriginAction(), 
-                 env_config =dict(**env_config_base,max_step=1000),
+                 env_setting =dict(**env_config_base,max_step=1000),
                  cam_config_list=[front_cam], 
                  discrete_actions = None,
                  augment_image=False,
-                 rand_weather=False,
-                 sync = False,                
+                 rand_weather=False,                 
                  seed=2024):
-        
-        if discrete_actions is not None:
-            if not isinstance(discrete_actions,dict) and not isinstance(discrete_actions,list):
-                raise Exception("discrete action have to be dict type or list type")
-        
-        random.seed(seed)
-        # param ======================================================================================
+        activate_render = True,
+        render_raw = True,
+        render_observer = True,
+        super().__init__(observer=observer,
+                 coach_config=coach_config,
+                 action_wrapper = action_wrapper, 
+                 env_setting =env_setting,
+                 cam_config_list=cam_config_list, 
+                 discrete_actions = discrete_actions,
+                 activate_render = activate_render,
+                 render_raw = render_raw,
+                 render_observer = render_observer,
+                 augment_image=augment_image,
+                 rand_weather=rand_weather,                 
+                 seed=seed)
 
-        self.observer = observer
-        self.action_wraper = action_wrapper
-        self.rewarder = rewarder
-        self.discrete_actions = discrete_actions
-        self.render_raw = True
-        self.render_observer  = True
-        self.rand_weather = rand_weather
-
-        self.env_config = env_config
-        self.max_step = env_config['max_step']
-        self.env_config = env_config
-        self.fps = 1/env_config['delta_frame']
-
-        self.closed_env = False
-        self.episode_idx =0
-        self.sync = sync
-
-        # set gym space ==============================================================================
-
-        if discrete_actions is None :
-            print("using continuous space steer = [-1,1] , throttle = [0,1]")
-            self.action_space = spaces.Box(np.array([-1, 0]), np.array([1, 1]), dtype=np.float32) 
-            
-        else:
-            print("using discret action")
-            self.action_space = spaces.Discrete(len(discrete_actions))
-
-        self.observation_space = self.observer.gym_obs()
-            
-        self.world = World(env_config['host'],env_config['port'],env_config['delta_frame'],sync_mode=self.sync)
-
-        try:
-            # create actor
-            self.car = VehicleActor(self.world,
-                            env_config['vehicle'],
-                            spawn_points=car_spawn)
-            
-            self.car.apply_mode(spawn_mode)
-            
-            self.rewarder.apply_car(self.car)
-            
-            # dash cam ===
-            self.dcam = []
-            for cf in cam_config_list:
-                if cf["type"] =="sensor.camera.rgb":
-                    self.dcam.append(RGBCamera(self.world,self.car,cf,augment_image))
-                elif cf["type"] == "sensor.camera.semantic_segmentation":
-                    self.dcam.append(SegCamera(self.world,self.car,cf,augment_image))
-
-            # Collision sensor ===
-            self.colli_sensor = CollisionSensor(self.world,self.car)
-            self.rewarder.apply_collision_sensor(self.colli_sensor)
-
-
-            # cam for save video and visualize ===
-            self.spectator = SpectatorCamera(self.world,self.car,spectator_cam)
-            # pygame display ==
-            weak_self = weakref.ref(self)
-            self.pygamectrl = PygameManual(spectator_cam,weak_self,self.discrete_actions)  
-        except Exception as e:
-            print(e)
-            self.close()                                                                                                                                                            
-   
-    def reset(self):
-
-        if self.closed_env:
-            raise Exception("CarlaEnv.reset() called after the environment was closed.")
-        # initial basic param ===============================================================
-        self.episode_idx+=1
-        # self.count_in_obs = 0 # Step inside obstacle range
-        self.step_count = 0
-        self.total_reward = 0
-        self.total_speed = 0
-        self.total_distance=0
-        self.reward = 0
-        self.prev_pos = None
-        self.action = [0,0]
+    def get_pygamecontroller(self):
+        weak_self = weakref.ref(self)
+        return PygameManual(spectator_cam,weak_self,self.discrete_actions)                                                                                                                                                 
+    def reset(self, *, seed=None, options=None):
         self.reason = ""
-        # reset actor   
-        self.rewarder.reset()
-        self.world.reset_actors() 
-        if self.rand_weather:
-            self.world.random_wather()
-        # spawn obstacle===
-        # advance step ====
-        if self.sync:
-            for _ in range(4):
-                self.world.tick()
-        self.update_infos()
-        # get the initial observation ========================================================
-        self.list_images = self.world.get_all_obs()
-        self.obs = self.observer.reset(self.list_images)
-
-        self.spec_image = self.spectator.get_obs()
-        self.render()
-
-        return self.obs
-
+        self.action = (0,0)
+        obs,_ =  super().reset(seed=seed, options=options)
+        return obs
     def step(self):
-
-
         # action = copy.deepcopy(action)
         if self.closed_env:
             raise Exception("CarlaEnv.step() called after the environment was closed." +
@@ -181,6 +95,7 @@ class ManualCtrlEnv():
         control = carla.VehicleControl(throttle=self.throttle, steer=self.steer, brake=False,
                                        hand_brake=False, reverse=False, manual_gear_shift=False, gear=0)
         
+        self.coach.set_movement()
         # control = carla.VehicleAckermannControl(steer=steer, steer_speed=0.3 ,speed=throttle, acceleration=3.6, jerk=0.1)
   
 
@@ -190,21 +105,21 @@ class ManualCtrlEnv():
         self.car.apply_control(control)
         # self.car.apply_ackermann_control(control)
 
+        # coach eval
+        self.maneuver,self.reward,terminate,self.reason = self.coach.review()
+        self.total_reward+=self.reward
+
         # get image from camera
         self.list_images = self.world.get_all_obs()
-        self.obs = self.observer.step(imgs = self.list_images,act=self.action)
-            
-        # get reward        
-        self.reward = self.rewarder(being_obstructed=False)
-        self.total_reward+=self.reward
-        terminate,self.reason = self.rewarder.get_terminate()
+        self.latent = self.observer.step(imgs = self.list_images,act=self.action)
+        self.obs = np.concatenate((self.latent,self.maneuver))     
 
         # basic termination -> colision or reach max step or out of the rount more than n step 
-        done =  self.closed_env 
+        done = self.colli_sensor.collision or self.step_count > self.max_step or self.closed_env or terminate
 
         # get info
         info = {"step":self.step_count,
-                "location":(self.car_position.x,self.car_position.y),
+                "location":f"({self.car_position[0]:.2f},{self.car_position[1]:.2f})",
                 "reward":self.reward,
                 "total_reward":self.total_reward,
                 "distance":self.distance,
@@ -219,18 +134,7 @@ class ManualCtrlEnv():
         self.render()
     
         return  self.obs,self.reward,done,info
-     
-    def update_infos(self):
-        self.car_position = self.car.get_location()
-        if self.prev_pos is None:
-            self.prev_pos = (self.car_position.x,self.car_position.y)
-        self.distance = self.car.calculate_distance((self.prev_pos),(self.car_position.x,self.car_position.y))
-        self.prev_pos= (self.car_position.x,self.car_position.y)
-        self.total_distance += self.distance
-        self.speed = self.car.get_xy_velocity()*3.6
-        self.total_speed +=self.speed
-        self.avg_speed = self.total_speed/self.step_count if self.step_count >0 else 0
-        self.mean_reward = self.total_reward/self.step_count if self.step_count >0 else 0
+
 
     def get_raw_images(self):
         return self.list_images
@@ -244,73 +148,59 @@ class ManualCtrlEnv():
     def get_input_states(self):
         return self.obs
 
-    def render(self):
+    # def render(self):
         
-        obs_list = []
-        if self.render_raw:
-            obs_list.append(self.list_images)
+    #     obs_list = []
+    #     if self.render_raw:
+    #         obs_list.append(self.list_images)
             
-        if self.render_observer:
-            obs_list.extend(self.observer.get_renders())
+    #     if self.render_observer:
+    #         obs_list.extend(self.observer.get_renders())
 
-        # Resize and arrange images
-        spec_height, spec_width,_ = self.spec_image.shape
-        target_height = spec_height // 6
+    #     # Resize and arrange images
+    #     spec_height, spec_width,_ = self.spec_image.shape
+    #     target_height = spec_height // 6
 
-        x_offset = spec_width
+    #     x_offset = spec_width
 
-        for img_set in obs_list:
-            resized_images = []
-            total_height = 0
+    #     for img_set in obs_list:
+    #         resized_images = []
+    #         total_height = 0
 
-            # Resize images and calculate the total height
-            for img in img_set:
-                height, width, _ = img.shape
-                scaling_factor = target_height / height
-                new_width = int(width * scaling_factor)
-                resized_img = cv2.resize(img, (new_width, target_height))
-                resized_images.append(resized_img)
-                total_height += target_height
+    #         # Resize images and calculate the total height
+    #         for img in img_set:
+    #             height, width, _ = img.shape
+    #             scaling_factor = target_height / height
+    #             new_width = int(width * scaling_factor)
+    #             resized_img = cv2.resize(img, (new_width, target_height))
+    #             resized_images.append(resized_img)
+    #             total_height += target_height
 
-            # Calculate the x offset for the current list
-            x_offset -= new_width
+    #         # Calculate the x offset for the current list
+    #         x_offset -= new_width
 
-            # Place images in the main image
-            y_offset = 0
-            for resized_img in resized_images:
-                self.spec_image[y_offset:y_offset + target_height, x_offset:x_offset + new_width] = resized_img
-                y_offset += target_height
+    #         # Place images in the main image
+    #         y_offset = 0
+    #         for resized_img in resized_images:
+    #             self.spec_image[y_offset:y_offset + target_height, x_offset:x_offset + new_width] = resized_img
+    #             y_offset += target_height
 
-        extra_info=[
-            "Episode {}".format(self.episode_idx),
-            "Step: {}".format(self.step_count),
-            "",
-            "Distance: % 7.3f m" % self.distance, 
-            "Distance traveled: % 7d m" % self.total_distance,
-            "speed:      % 7.2f km/h" % self.speed,
-            "Reward: % 19.2f" % self.reward,
-            "Total reward:        % 7.2f" % self.total_reward,
-        ]
+    #     extra_info=[
+    #         "Episode {}".format(self.episode_idx),
+    #         "Step: {}".format(self.step_count),
+    #         "",
+    #         "Distance: % 7.3f m" % self.distance, 
+    #         "Distance traveled: % 7d m" % self.total_distance,
+    #         "speed:      % 7.2f km/h" % self.speed,
+    #         "Reward: % 19.2f" % self.reward,
+    #         "Total reward:        % 7.2f" % self.total_reward,
+    #     ]
 
-        if self.colli_sensor.event is not None:
-            self.pygamectrl.hud.notification("Collision with {}".format(get_actor_display_name(self.colli_sensor.event.other_actor)))
-            self.colli_sensor.event=None
-        if self.reason != "":
-            self.pygamectrl.hud.notification(self.reason)
+    #     if self.colli_sensor.event is not None:
+    #         self.pygamectrl.hud.notification("Collision with {}".format(get_actor_display_name(self.colli_sensor.event.other_actor)))
+    #         self.colli_sensor.event=None
+    #     if self.reason != "":
+    #         self.pygamectrl.hud.notification(self.reason)
   
-        self.pygamectrl.render(self.spec_image,extra_info) 
-
-
-    
-
-
-    def close(self):
-
-        try:
-            self.pygamectrl.close()
-        except:
-            pass
-
-        self.world.reset()
-        self.closed_env = True
+    #     self.pygamectrl.render(self.spec_image,extra_info) 
 

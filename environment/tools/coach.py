@@ -45,10 +45,11 @@ class Coach:
         commander_configs = [cf['cmd_config'] for cf in self.scene_configs]
         self.command_points = [
 
-            high_level_cmd_type[cf['name']](cf['cmd_configs'])
+            high_level_cmd_type[cf['name']](cf['configs'])
                     for cf in commander_configs
 
         ]
+
 
     def carla_list_transform(self, area:List) -> carla.Transform:
         """Convert a configuration dictionary into a CARLA transform."""
@@ -69,18 +70,23 @@ class Coach:
         sp = random.choice(self.spawn_trans[self.curr_scene])
         self.car.move(sp)
 
-        return np.array([self.maneuver])
+        return self.maneuver
 
     def review(self):
 
         """
         calculate maneuver , score , terminate,
+        
         """
-        self.score,self.terminate,self.reason = self.rewarders[self.curr_scene]()
+        try:
+            self.score,self.terminate,self.reason = self.rewarders[self.curr_scene]()
+
+        except:
+            raise Exception(f"rewarder out :{self.rewarders[self.curr_scene]()}")
 
         self.maneuvar = self.command_points[self.curr_scene](self.car.get_xy_location())
 
-        return np.array([self.maneuver]),self.score,self.terminate,self.reason
+        return self.maneuver,self.score,self.terminate,self.reason
 
     def set_movement(self):
         pass

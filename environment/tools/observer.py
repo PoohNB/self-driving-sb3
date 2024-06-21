@@ -110,20 +110,9 @@ class SegVaeActHistObserver(SegVaeObserver):
         self.act_num = act_num
         self.len_latent = (self.latent_space*num_img_input+self.act_num)*self.hist_len
         self.history_state = deque(maxlen=self.hist_len*(self.skip_frame+1)-self.skip_frame)
-
-    def gym_obs(self):
-
-        observation_space = spaces.Box(low=np.finfo(np.float32).min,
-                                                high=np.finfo(np.float32).max,
-                                                shape=(1, self.len_latent),
-                                                dtype=np.float32)
-        
-        return observation_space
     
     def get_state(self):
         state = np.concatenate([self.history_state[i] for i in range(len(self.history_state)) if i%(self.skip_frame+1)==0])
-        if state.shape[0] != self.len_latent:
-            raise Exception("the state size and gym space not equal, please check observer argument 'num_img_input' and 'latent_space'")
         return state
     
     def reset(self,imgs):
@@ -167,16 +156,6 @@ class SegVaeActObserver(SegVaeObserver):
         self.latent_space = vae_encoder.latent_dims
         self.act_num = act_num
         self.len_latent = (self.latent_space+self.act_num)*num_img_input
-
-
-    def gym_obs(self):
-
-        observation_space = spaces.Box(low=np.finfo(np.float32).min,
-                                                high=np.finfo(np.float32).max,
-                                                shape=(1, self.len_latent),
-                                                dtype=np.float32)
-        
-        return observation_space
         
     
     def reset(self,imgs):

@@ -91,7 +91,7 @@ class RewardPath:
         if self.colli.collision:
             self.terminate = True
             self.reason = "collision terminate"
-            return -20
+            return -20,self.terminate,self.reason
 
         # initial reward
         reward = 0
@@ -118,7 +118,7 @@ class RewardPath:
         if self.staystill_count>self.staystill_limit and self.started:
             self.terminate = True
             self.reason = "stay still for too long"
-            return -10
+            return -10,self.terminate,self.reason
   
         # determine position - stay in blue reward out of blue panish
         img_x, img_y = self._get_car_position_on_map((car_position.x, car_position.y))

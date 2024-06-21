@@ -2,6 +2,7 @@
 
 from typing import List, Tuple, Dict
 import random
+import numpy as np
 
 class DirectionCmd:
     """
@@ -17,10 +18,10 @@ class DirectionCmd:
 
     def reset(self):
         self.check_in = False
-        self.curr_cmd = 0
+        self.curr_cmd = [0]
         self.activate_pillar = None
         
-        return self.curr_cmd
+        return np.array(self.curr_cmd)
 
     def __call__(self, curr_pos: Tuple[float, float]):
             
@@ -56,7 +57,7 @@ class DirectionCmd:
                     self.activate_pillar = None
                     self.check_in = False
     
-        return self.curr_cmd
+        return np.array(self.curr_cmd)
     
     @staticmethod
     def calculate_distance_power2(prev_pos:tuple,cur_pos:tuple):

@@ -31,6 +31,12 @@ observer_no_hist = dict(name="SegVaeActObserver",
                  config=dict(num_img_input = 1,
                             act_num=2,))
 
+observer_discrete = dict(name="SegVaeActHistObserver",
+                 config=dict(num_img_input = 1,
+                            act_num=1,
+                            hist_len = 8,
+                            skip_frame=0))
+
 
 # env_config ===============================================================
 
@@ -41,16 +47,31 @@ env_config1 = dict(env_setting = dict(**env_config_base,max_step =500),
                     seed=2024,
                     rand_weather=False)
   
-manual_env_config = dict(env_setting = dict(**env_config_base,max_step =500),
+manual_env_config = dict(env_setting = dict(**env_config_base,max_step =1000),
                         cam_config_list=[front_cam], 
                         discrete_actions = [[-0.6,0.4],[-0.1,0.56],[0,0.6],[0,0.4],[0,0],[0.1,0.56],[0.6,0.4]],
-                        coach_config = ait_fb_scene,
+                        coach_config = ait_fb_scene_outer_only,
                         seed=2024,
                         rand_weather=False)
 
 # [[0.0,0],[0.1,0],[0.2,0],[0.3,0],[0.4,0],[0.5,0],[0.6,0],[0.7,0],[0.8,0]],
 # [-0.6,0.4],[-0.1,0.56],[0,0.6],[0,0.4],[0,0],[0.1,0.56],[0.6,0.4]
 # all_config =======================================
+
+test_ENV = dict(observer_config=observer1,
+            seg_config=fbm2f_fp16_1280,
+            vencoder_config=vencoder32,
+            decoder_config=decoder32,
+            env_config=env_config1,
+            actionwrapper= originaction)
+
+MANUAL_ENV = dict(observer_config=observer_discrete,
+            seg_config=fbm2f_fp16_1280,
+            vencoder_config=vencoder32,
+            decoder_config=decoder32,
+            env_config=manual_env_config,
+            actionwrapper= originaction)
+
 ENV1 = dict(observer_config=observer1,
             seg_config=fbm2f_fp16,
             vencoder_config=vencoder32,
@@ -72,12 +93,6 @@ ENV4RNN = dict(observer_config=observer_no_hist,
             env_config=env_config1,
             actionwrapper= limitaction2)
 
-MANUAL_ENV = dict(observer_config=observer_no_hist,
-            seg_config=fbm2f_fp16_1280,
-            vencoder_config=vencoder32,
-            decoder_config=decoder32,
-            env_config=manual_env_config,
-            actionwrapper= originaction)
 
 
 # train experiment config =======================================
