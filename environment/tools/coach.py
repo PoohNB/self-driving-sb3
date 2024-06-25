@@ -29,9 +29,9 @@ class Coach:
         # spawn transform from config
         self.spawn_trans = [self.carla_list_transform(cf['spawn_points']) for cf in self.scene_configs]
         # get vehicle placer and pedestrian placer
-        vehicle_configs = [cf['car_obsc'] for cf in self.scene_configs]
-        pedestrian_configs = [cf['ped_obsc'] for cf in self.scene_configs]
-        self.vehicle_placer = VehiclePlacer(self.world,vehicle_configs,parking_area)   
+        vehicle_configs = [cf['car_obsc'] for cf in self.scene_configs if cf['car_obsc']]
+        self.vehicle_placer = VehiclePlacer(self.world,vehicle_configs,parking_area) 
+        pedestrian_configs = [cf['ped_obsc'] for cf in self.scene_configs]          
         self.pedestrian_placer = PedestriansPlacer(self.world,pedestrian_configs,ped_area)
         # rewarder list
         rewarder_configs = [cf['rewarder_config'] for cf in self.scene_configs]
@@ -63,14 +63,14 @@ class Coach:
         self.vehicle_placer.reset(self.curr_scene)
         self.pedestrian_placer.reset(self.curr_scene)
         # reset rewarder
-        self.rewarders[self.curr_scene].reset()
+        self.info = self.rewarders[self.curr_scene].reset()
         # reset high level command
         self.maneuver=self.command_points[self.curr_scene].reset()
         #set the agent car on spawn points
         sp = random.choice(self.spawn_trans[self.curr_scene])
         self.car.move(sp)
 
-        return self.maneuver
+        return self.maneuver,self.info
 
     def review(self):
 
@@ -79,14 +79,14 @@ class Coach:
         
         """
         try:
-            self.score,self.terminate,self.reason = self.rewarders[self.curr_scene]()
+            self.score,self.terminate,self.info = self.rewarders[self.curr_scene]()
 
         except:
             raise Exception(f"rewarder out :{self.rewarders[self.curr_scene]()}")
 
-        self.maneuvar = self.command_points[self.curr_scene](self.car.get_xy_location())
+        self.maneuver = self.command_points[self.curr_scene](self.car.get_xy_location())
 
-        return self.maneuver,self.score,self.terminate,self.reason
+        return self.maneuver,self.score,self.terminate,self.info
 
     def set_movement(self):
         pass

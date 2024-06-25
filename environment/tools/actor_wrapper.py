@@ -179,7 +179,8 @@ class RGBCamera(CameraBase):
             return
         img = np.array(data.raw_data)
         img = img.reshape((self_ref.cam_config['attribute']['image_size_y'], self_ref.cam_config['attribute']['image_size_x'], 4))
-        self_ref.cam_tmp = img[:, :, :3][:, :, ::-1].astype(np.uint8)#BGRA2RGB
+        with self_ref.lock:
+            self_ref.cam_tmp = img[:, :, :3][:, :, ::-1].astype(np.uint8)  #
 
 #=====
 
@@ -216,11 +217,11 @@ class SegCamera(CameraBase):
         self_ref = weak_self()
         if not self_ref:
             return
-
-        if self_ref.palette == "CityScapesPalette":
-            self_ref.process_CityScapesPalette(data)
-        else:
-            self_ref.process_seg(data)
+        with self_ref.lock:
+            if self_ref.palette == "CityScapesPalette":
+                self_ref.process_CityScapesPalette(data)
+            else:
+                self_ref.process_seg(data)
     
     def process_seg(self, data):
         
@@ -286,6 +287,7 @@ class SpectatorCamera(RGBCamera):
 class CollisionSensor(CarlaActorBase):
 
     def __init__(self,wrapped_world,wrapped_veh):
+        self.lock = threading.Lock()
         self.world = wrapped_world.get_carla_world()
         self.car =  wrapped_veh.get_carla_actor()
         blueprints = self.world.get_blueprint_library()
@@ -304,10 +306,10 @@ class CollisionSensor(CarlaActorBase):
         self_ref = weak_self()
         if not self_ref:
             return
-        
-        if event.other_actor.semantic_tags[0] not in [1, 24]:
-            self_ref.collision = True
-        self_ref.event = event
+        with self_ref.lock:
+            if event.other_actor.semantic_tags[0] not in [1, 24]:
+                self_ref.collision = True
+            self_ref.event = event
 
 class VehicleActor(CarlaActorBase):
 

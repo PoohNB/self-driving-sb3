@@ -10,7 +10,6 @@ import traceback
 sync = True
 env = manualctrlenv_from_config(MANUAL_ENV,sync)
 try:
-
     obs = env.reset()
     done = False
     step = 0

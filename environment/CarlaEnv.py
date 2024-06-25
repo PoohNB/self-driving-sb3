@@ -87,10 +87,11 @@ class CarlaImageEnv(gym.Env):
             
         else:
             print("using discret action")
-            self.action_space = spaces.Discrete(len(discrete_actions))
+            self.num_discrete = len(discrete_actions)
+            self.action_space = spaces.Discrete(self.num_discrete)
+
 
         num_maneuver = len(coach_config['scene_configs'][0]['cmd_config']['configs'][0]['cmd'])
-
         self.observation_space = spaces.Box(low=np.finfo(np.float32).min,
                                                 high=np.finfo(np.float32).max,
                                                 shape=(1, self.observer.len_latent+num_maneuver),
@@ -149,7 +150,7 @@ class CarlaImageEnv(gym.Env):
         self.reward = 0
         self.prev_pos = None
         # reset actor, and 
-        self.maneuver = self.coach.reset()
+        self.maneuver,self.note = self.coach.reset()
         self.world.reset_actors() 
         if self.rand_weather:
             self.world.random_wather()
@@ -185,6 +186,7 @@ class CarlaImageEnv(gym.Env):
         else:
             steer, throttle = self.discrete_actions[action]
             brake = False
+            action = np.array([action/self.num_discrete])
 
         control = carla.VehicleControl(throttle=throttle, steer=steer, brake=brake,
                                        hand_brake=False, reverse=False, manual_gear_shift=False, gear=0)
@@ -200,7 +202,8 @@ class CarlaImageEnv(gym.Env):
         # self.car.apply_ackermann_control(control)
 
         # coach eval
-        self.maneuver,self.reward,terminate,reason = self.coach.review()
+        self.maneuver,self.reward,terminate,self.note = self.coach.review()
+   
         self.total_reward+=self.reward
 
         # get image from camera
@@ -222,7 +225,7 @@ class CarlaImageEnv(gym.Env):
                 "avg_speed":self.avg_speed,
                 "steer":steer,
                 "mean_reward":self.mean_reward,
-                "terminate reason":reason}
+                **self.note}
 
         if self.activate_render:
             self.spec_image = self.spectator.get_obs()
@@ -294,18 +297,18 @@ class CarlaImageEnv(gym.Env):
         
 
         manv = self.maneuvers_set[self.maneuver[0]]
-
+        list_of_strings = [f"{key}:{value}" for key, value in self.note.items()if key != "reason"]
         extra_info=[
             "Episode {}".format(self.episode_idx),
             "Step: {}".format(self.step_count),
             "",
             f"Maneuver: {manv}",
-            "Distance from last step: % 7.3f m" % self.distance, 
+            "Distance: % 7.3f m" % self.distance, 
             "Distance traveled: % 7d m" % self.total_distance,
             "speed:      % 7.2f km/h" % self.speed,
             "Reward: % 19.2f" % self.reward,
             "Total reward:        % 7.2f" % self.total_reward,
-        ]
+        ]+list_of_strings
 
         if self.colli_sensor.event is not None:
             self.pygamectrl.hud.notification("Collision with {}".format(get_actor_display_name(self.colli_sensor.event.other_actor)))

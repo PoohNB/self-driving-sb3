@@ -4,32 +4,25 @@ import json
 import pandas as pd
 
 import logging
-from stable_baselines3 import SAC, PPO, DDPG
-from sb3_contrib import RecurrentPPO
 from environment.loader import env_from_config
 from utils import VideoRecorder
-from config.trainRL_config import ENV2
+# from config.trainRL_config import ENV2
 from environment.tools.env_wrapper import GymWrapper
+from config.algorithm_config import available_AlgorithmRL
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Available policies
-available_policy = {
-    "SAC": SAC,
-    "PPO": PPO,
-    "DDPG": DDPG,
-    "RecurrentPPO": RecurrentPPO
-}
+
 
 # Paths and configurations=============
-model_path = "RLmodel/SAC_5/model_100000_steps.zip"
+model_path = "RLmodel/SAC_6/model_100000_steps.zip"
 # model_path = "optuna_trials/PPO/trial_21/best_model.zip"
 manual_config = None
-seed = 2024
-record = True # get 1 video and 1 csv file of info of each step
-eval_times = 2
+seed = 2000
+record = False # get 1 video and 1 csv file of info of each step
+eval_times = 1
 #=============================
 
 if manual_config is None:
@@ -69,7 +62,7 @@ try:
     env = GymWrapper(env)
 
     # Load the model
-    Policy = available_policy[model_path.split('/')[1].split('_')[0]]
+    Policy = available_AlgorithmRL[model_path.split('/')[1].split('_')[0]]
     model = Policy.load(model_path, env=env, device='cuda')
 
     logger.info("Model and environment loaded successfully.")

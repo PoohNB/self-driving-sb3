@@ -72,12 +72,14 @@ class ManualCtrlEnv(CarlaImageEnv):
 
     def get_pygamecontroller(self):
         weak_self = weakref.ref(self)
-        return PygameManual(spectator_cam,weak_self,self.discrete_actions)                                                                                                                                                 
+        return PygameManual(spectator_cam,weak_self,self.discrete_actions)   
+                                                                                                                                                  
     def reset(self, *, seed=None, options=None):
         self.reason = ""
         self.action = (0,0)
         obs,_ =  super().reset(seed=seed, options=options)
         return obs
+    
     def step(self):
         # action = copy.deepcopy(action)
         if self.closed_env:
@@ -106,7 +108,8 @@ class ManualCtrlEnv(CarlaImageEnv):
         # self.car.apply_ackermann_control(control)
 
         # coach eval
-        self.maneuver,self.reward,terminate,self.reason = self.coach.review()
+        self.maneuver,self.reward,terminate,self.note = self.coach.review()
+   
         self.total_reward+=self.reward
 
         # get image from camera
@@ -128,7 +131,7 @@ class ManualCtrlEnv(CarlaImageEnv):
                 "avg_speed":self.avg_speed,
                 "steer":self.steer,
                 "mean_reward":self.mean_reward,
-                "terminate reason":self.reason}
+                **self.note}
 
         self.spec_image = self.spectator.get_obs()
         self.render()
@@ -147,60 +150,3 @@ class ManualCtrlEnv(CarlaImageEnv):
         
     def get_input_states(self):
         return self.obs
-
-    # def render(self):
-        
-    #     obs_list = []
-    #     if self.render_raw:
-    #         obs_list.append(self.list_images)
-            
-    #     if self.render_observer:
-    #         obs_list.extend(self.observer.get_renders())
-
-    #     # Resize and arrange images
-    #     spec_height, spec_width,_ = self.spec_image.shape
-    #     target_height = spec_height // 6
-
-    #     x_offset = spec_width
-
-    #     for img_set in obs_list:
-    #         resized_images = []
-    #         total_height = 0
-
-    #         # Resize images and calculate the total height
-    #         for img in img_set:
-    #             height, width, _ = img.shape
-    #             scaling_factor = target_height / height
-    #             new_width = int(width * scaling_factor)
-    #             resized_img = cv2.resize(img, (new_width, target_height))
-    #             resized_images.append(resized_img)
-    #             total_height += target_height
-
-    #         # Calculate the x offset for the current list
-    #         x_offset -= new_width
-
-    #         # Place images in the main image
-    #         y_offset = 0
-    #         for resized_img in resized_images:
-    #             self.spec_image[y_offset:y_offset + target_height, x_offset:x_offset + new_width] = resized_img
-    #             y_offset += target_height
-
-    #     extra_info=[
-    #         "Episode {}".format(self.episode_idx),
-    #         "Step: {}".format(self.step_count),
-    #         "",
-    #         "Distance: % 7.3f m" % self.distance, 
-    #         "Distance traveled: % 7d m" % self.total_distance,
-    #         "speed:      % 7.2f km/h" % self.speed,
-    #         "Reward: % 19.2f" % self.reward,
-    #         "Total reward:        % 7.2f" % self.total_reward,
-    #     ]
-
-    #     if self.colli_sensor.event is not None:
-    #         self.pygamectrl.hud.notification("Collision with {}".format(get_actor_display_name(self.colli_sensor.event.other_actor)))
-    #         self.colli_sensor.event=None
-    #     if self.reason != "":
-    #         self.pygamectrl.hud.notification(self.reason)
-  
-    #     self.pygamectrl.render(self.spec_image,extra_info) 
-

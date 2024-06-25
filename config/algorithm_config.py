@@ -2,6 +2,16 @@ from utils import exp_schedule
 import torch as th
 import numpy as np
 from stable_baselines3.common.noise import NormalActionNoise
+from stable_baselines3 import SAC,PPO,DDPG,DQN
+from sb3_contrib import RecurrentPPO
+
+available_AlgorithmRL = {
+    "SAC":SAC,
+    "PPO":PPO,
+    "DDPG":DDPG,
+    "RecurrentPPO":RecurrentPPO,
+    "DQN":DQN
+}
 
 
 SAC1 = dict(policy = "MlpPolicy",
@@ -70,7 +80,7 @@ PPO2 = dict(policy = "MlpPolicy",
         n_steps=1024,
         batch_size=256,
         policy_kwargs=dict(activation_fn=th.nn.ELU,
-                           net_arch=dict(pi=[128, 128,64], vf=[128, 128,64])))
+                           net_arch=dict(pi=[64, 64,64], vf=[64, 64,64])))
 
 RNNPPO1 = dict(policy = "MlpLstmPolicy",
         learning_rate=exp_schedule(1e-4, 1e-6, 2),

@@ -1,4 +1,5 @@
-ait_football_spawn = [
+# spawn_point============================================================================
+spawn_outer = [
              dict(Location=(-573.5,-223.5,0.2),Rotation=(0,270,0)),
              dict(Location=(-490.1,-369.2,0.2),Rotation=(0,0,0)),
              dict(Location=(-347.4,-273.5,0.2),Rotation=(0,90,0)),
@@ -7,21 +8,14 @@ ait_football_spawn = [
              
              ]
 
-ait_fb_spawn_outer = [
-             dict(Location=(-573.5,-223.5,0.2),Rotation=(0,270,0)),
-             dict(Location=(-490.1,-369.2,0.2),Rotation=(0,0,0)),
-             dict(Location=(-347.4,-273.5,0.2),Rotation=(0,90,0)),
-             dict(Location=(-361,-142.9,0.2),Rotation=(0,180,0)),
-             dict(Location=(-561.1,-149.3,0.2),Rotation=(0,182,0))
-             
-             ]
-
-ait_fb_spawn_inner= [
+spawn_inner= [
              dict(Location=(-480.0,-366.0,0.2),Rotation=(0,180,0)),
              dict(Location=(-570.0,-280.0,0.2),Rotation=(0,90,0)),
              dict(Location=(-518.0,-151.0,0.2),Rotation=(0,0,0)),
              dict(Location=(-351.4,-271.0,0.2),Rotation=(0,270,0)),             
              ]
+
+# command point ==========================================================================
 
 junction =[(-576.6548461914062, -148.419189453125),
             (-570.05419921875, -366.15301513671875),
@@ -61,20 +55,13 @@ cmd_points_outer = dict( name = "DirectionCmd",
                                    cmd = [1]),
                                    ])
 
-# ait_fb_car_outer = dict(available_loc = [dict(Location=(-423.0,-368.1,0.1),Rotation=(0,1,0)),
-#                                          dict(Location=(-506.0,-369.2,0.1),Rotation=(0,0,0)),
-#                                          dict(Location=(-384.2,-367.3,0.1),Rotation=(0,1,0)),
-#                                          dict(Location=(-346.1,-344.7,0.1),Rotation=(0,93,0)),
-#                                          dict(Location=(-347.7,-280.4,0.1),Rotation=(0,92,0)),
-#                                          dict(Location=(-348.1,-197.5,0.1),Rotation=(0,90,0)),
-#                                          dict(Location=(-385.7,-143.1,0.1),Rotation=(0,180,0)),
-#                                          dict(Location=(-515.4,-148.4,0.1),Rotation=(0,180,0)),
-#                                          dict(Location=(-573.5,-187.1,0.1),Rotation=(0,270,0)),
-#                                          dict(Location=(-572.3,-328.0,0.1),Rotation=(0,271,0)),
-#                                          ],
-#                         density =0.8)
+# placer config
+dummy_placer = dict(available_loc = [],
+                        values =0,
+                        on_road_ratio=0.8
+                        )
 
-ait_fb_car_outer = dict(available_loc = [(-538.1447101510797, -366.44095049198035),
+placer_car_outer = dict(available_loc = [(-538.1447101510797, -366.44095049198035),
                                         (-441.5904279579548, -365.62663726866487),
                                         (-350.1546860256701, -342.47687563440957),
                                         (-350.96899924898565, -288.8485333560594),
@@ -89,7 +76,7 @@ ait_fb_car_outer = dict(available_loc = [(-538.1447101510797, -366.4409504919803
                          )
                          
 
-ait_fb_ped_outer = dict(available_loc = [(-569.32, -172.87),
+placer_ped_outer = dict(available_loc = [(-569.32, -172.87),
                                         (-479.05, -150.53),
                                         (-383.77, -145.76),
                                         (-575.84, -282.22),
@@ -97,16 +84,16 @@ ait_fb_ped_outer = dict(available_loc = [(-569.32, -172.87),
                                         (-331.77, -365.98)],
                         values=4)
 
-ait_fb_car_inner = dict(available_loc = [dict(Location=(),Rotation=()),
-                                         dict(Location=(),Rotation=())],
-                        values =5,
+placer_car_inner = dict(available_loc = [],
+                        values =0,
                         on_road_ratio=0.8
                         )
 
-ait_fb_ped_inner = dict(available_loc = [dict(Location=(),Rotation=()),
-                                            dict(Location=(),Rotation=())],
+placer_ped_inner = dict(available_loc = [],
                         values=4)
 
+
+# rest point config ===============================================================================
 parking_available = [dict(Location=(-526.3,-145.0,0.2),Rotation=(0,90,0)),
                      # dict(Location=(-528.9,-145.0,0.1),Rotation=(0,90,0)),
                      dict(Location=(-531.4,-145.0,0.2),Rotation=(0,90,0)),
@@ -126,26 +113,69 @@ people_area =  ((-500.33731049714527, -324.5619847214683),
                (-452.641821702951, -286.9872459884811))
 
 
-scene_config_outer = dict(spawn_points = ait_fb_spawn_outer,
+# scene config ==============================================================================
+no_obsc = dict(car_obsc = dummy_placer,
+               ped_obsc = dummy_placer)
+
+full_obsc_inner =  dict(car_obsc = placer_car_outer,
+                        ped_obsc = placer_ped_outer)
+
+full_obsc_outer = dict(car_obsc = placer_car_inner,
+                        ped_obsc = placer_ped_inner)
+
+reward_inner = dict(name="RewardPath",
+                    config = dict(mask_path = "environment/rewardmask/ait_map/ait_fb_inner.png"))
+
+reward_outer = dict(name="RewardPath",
+                    config = dict(mask_path = "environment/rewardmask/ait_map/ait_footballv2.png"))
+
+scene_outer_easy = dict(spawn_points = [spawn_outer[0]],
                           cmd_config = cmd_points_outer,
-                          car_obsc = ait_fb_car_outer,
-                          ped_obsc = ait_fb_ped_outer,
-                          rewarder_config = dict(name="RewardPath",
-                                        config = dict(mask_path = "environment/rewardmask/ait_map/ait_fb_outer.png")))
+                          **no_obsc,
+                          rewarder_config = reward_outer)
 
-scene_config_inner = dict(spawn_points = ait_fb_spawn_inner,
+scene_outer_med = dict(spawn_points = spawn_outer,
+                          cmd_config = cmd_points_outer,
+                          **no_obsc,
+                          rewarder_config = reward_outer)
+
+scene_outer_hard = dict(spawn_points = spawn_outer,
+                          cmd_config = cmd_points_outer,
+                           **full_obsc_outer,
+                          rewarder_config = reward_outer)
+
+scene_inner_easy = dict(spawn_points = [spawn_inner[0]],
                           cmd_config = cmd_points_inner,
-                          car_obsc = ait_fb_car_inner,
-                          ped_obsc = ait_fb_ped_inner,
-                          rewarder_config = dict(name="RewardPath",
-                                        config = dict(mask_path = "environment/rewardmask/ait_map/ait_fb_inner.png")))
+                          **no_obsc,
+                          rewarder_config = reward_inner)
 
-ait_fb_scene = dict(scene_configs=[scene_config_inner,scene_config_outer],
-                    parking_area=parking_available,
+scene_inner_med = dict(spawn_points = spawn_inner,
+                          cmd_config = cmd_points_inner,
+                          **no_obsc,
+                          rewarder_config = reward_inner)
+
+scene_inner_hard = dict(spawn_points = spawn_inner,
+                          cmd_config = cmd_points_inner,
+                          **full_obsc_inner,
+                          rewarder_config = reward_inner)
+
+# coach plan config =================================================================================================
+rest_config = dict( parking_area=parking_available,
                     ped_area=people_area
                     )
 
-ait_fb_scene_outer_only = dict(scene_configs=[scene_config_outer],
-                    parking_area=parking_available,
-                    ped_area=people_area
+plan_hard_full = dict(scene_configs=[scene_inner_hard,scene_outer_hard],
+                    **rest_config,
+                    )
+
+plan_med_outer = dict(scene_configs=[scene_outer_med],
+                    **rest_config,
+                    )
+
+plan_easy_outer = dict(scene_configs=[scene_outer_easy],
+                    **rest_config,
+                    )
+
+plan_easy_inner = dict(scene_configs=[scene_inner_easy],
+                    **rest_config,
                     )

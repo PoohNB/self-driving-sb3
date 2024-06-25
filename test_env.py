@@ -4,7 +4,7 @@ from config.trainRL_config import test_ENV
 from environment.tools.env_wrapper import GymWrapper
 import time
 episodes = 1
-action = [0.0005,0.6]
+action = [0.0006,0.6]
 test_ENV['env_config']['seed'] =1231
 
 env = env_from_config(test_ENV,True)

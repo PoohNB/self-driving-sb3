@@ -1,19 +1,16 @@
 from environment.loader import env_from_config
-
+import traceback
 from utils import TensorboardCallback,write_json,write_pickle,create_policy_paths
 
-from stable_baselines3 import SAC,PPO,DDPG
-from sb3_contrib import RecurrentPPO
+from config.algorithm_config import available_AlgorithmRL
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.logger import configure
 import os
 
-available_AlgorithmRL = {"SAC":SAC,"PPO":PPO,"DDPG":DDPG,"RecurrentPPO":RecurrentPPO}
+from config.trainRL_config import *
 
-from config.trainRL_config import RL_test,RL_test3,RL_rnnppo_1,RL_SAC_v2,RL_SAC_v2_con
-
-reload_model = "RLmodel/SAC_5/model_100000_steps.zip"
-CONFIG = RL_SAC_v2_con
+reload_model = ""#"RLmodel/SAC_5/model_100000_steps.zip"
+CONFIG = RL_SAC1
 LOG_DIR = "runs/RL"
 SAVE_PATH = "RLmodel"
 RENDER = True
@@ -53,7 +50,9 @@ try:
                     name_prefix="model")], reset_num_timesteps=False)
     
 except Exception as e:
-    print(e)
+    tb = traceback.format_exc()
+    print(f"An error occurred: {e}")
+    print(f"Traceback details:\n{tb}")
 
 finally:
     env.close()

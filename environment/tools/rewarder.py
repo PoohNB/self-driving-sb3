@@ -4,6 +4,16 @@ import os
 import json
 import math
 
+"""
+when we drive car, 
+in straight way, 
+mostly we will keep the steer at 0,
+when the car is near the edge of the road we move steer a little to keep the lane
+
+in intersection,
+we use the bigger steer angle to change the lane
+"""
+
 
 def laplace_dist(x,b=0.2):
     return np.exp(-abs(x)/b)
@@ -55,7 +65,8 @@ class RewardPath:
         self.car = vehicle
         self.colli = collision_sensor
 
-        self.out_of_road_count_limit = 30
+        self.color = "blue"
+        self.out_of_road_count_limit = 20
         self.staystill_limit = 25
         self.reward_scale = 4
         self.minimum_distance = 0.015
@@ -69,6 +80,7 @@ class RewardPath:
         self.prev_position = None
         self.prev_steer = 0
         # self.prev_area = 1 # 1 is blue 2 is black 3 is red 4 is green
+        return self.get_info()
 
     def _get_car_position_on_map(self, car_position):
         # Convert car position from CARLA coordinates to image coordinates
@@ -79,8 +91,12 @@ class RewardPath:
 
     def __call__(self, being_obstructed=False):
         """
-        condition 
-        - stay still
+        condition
+        - collision - get terminate , -20 score 
+        for the rest it will depend on distance
+        - stay still - if the distance change to small it will count as stay still , -1 score every step
+        - steering -
+
         - forward
         - turning
         """
@@ -91,26 +107,45 @@ class RewardPath:
         if self.colli.collision:
             self.terminate = True
             self.reason = "collision terminate"
-            return -20,self.terminate,self.reason
+            return -20,self.terminate,self.get_info()
 
         # initial reward
-        reward = 0
-        # get the car information for shape the reward
-        # yaw = self.car.get_transform().rotation.yaw
-        # max speed should be around 4.17 --> ~ 0.8 per step maximum
-        car_position = self.car.get_location()
-        if self.prev_position is None:
-            self.prev_position = (car_position.x,car_position.y)
-        distance = math.sqrt((car_position.x-self.prev_position[0])**2+(car_position.y-self.prev_position[1])**2)
-        self.prev_position = (car_position.x,car_position.y)
+        self.reward = 0
+        # get distance
+        self.get_distance()
+        # if car move too slow
+        self.stay_still_check(being_obstructed)
+        # make steer not too shakky
+        self.steer_check()
+        # determine position - stay in blue reward out of blue panish
+        self.out_path_check()
 
-        # if car not move to slow
-        if distance < self.minimum_distance and being_obstructed:
-            reward += 3
-        elif distance < self.minimum_distance:
+
+        return self.reward,self.terminate,self.get_info()
+    
+    def get_info(self):
+        return {"reason":self.reason,
+                "color":self.color}
+    
+    def get_mask_color(self):
+        return self.color
+    
+    def get_distance(self):
+        self.car_pos = self.car.get_location()
+        if self.prev_position is None:
+            self.prev_position = (self.car_pos.x,self.car_pos.y)
+        self.distance = math.sqrt((self.car_pos.x-self.prev_position[0])**2+(self.car_pos.y-self.prev_position[1])**2)
+        self.prev_position = (self.car_pos.x,self.car_pos.y)
+        
+    
+    def stay_still_check(self,being_obstructed):
+        # if car move too slow
+        if self.distance < self.minimum_distance and being_obstructed:
+            self.reward += 4
+        elif self.distance < self.minimum_distance:
             self.staystill_count+=1
             if self.started:
-                reward -= 3
+                self.reward -= 4
         else:
             self.started = True
             self.staystill_count=0
@@ -118,49 +153,57 @@ class RewardPath:
         if self.staystill_count>self.staystill_limit and self.started:
             self.terminate = True
             self.reason = "stay still for too long"
-            return -10,self.terminate,self.reason
-  
+            self.reward = -10
+    
+    def steer_check(self):
+        # determine steer
+        self.curr_steer = self.car.get_control().steer
+        car_angle_change = abs(self.curr_steer - self.prev_steer)
+        self.prev_steer = self.curr_steer
+        
+        # panish should lower than get car out of path, the most range is 2 but
+        # expect most value is 0.4 so it already lower than out of road punish 
+        self.reward -= min(car_angle_change,0.4) * self.distance * self.reward_scale
+
+        # small reward when can keep to steer at 0 for make it try to keep it strigth
+        self.reward += norm_dist(self.curr_steer) * self.distance * self.reward_scale * 0.2
+
+    def out_path_check(self):
         # determine position - stay in blue reward out of blue panish
-        img_x, img_y = self._get_car_position_on_map((car_position.x, car_position.y))
+        img_x, img_y = self._get_car_position_on_map((self.car_pos.x, self.car_pos.y))
 
         if 0 <= img_x < self.route.shape[1] and 0 <= img_y < self.route.shape[0]:
             pixel_value = self.route[img_y, img_x]
             
             # Blue area reward
             if (pixel_value == [255, 0, 0]).all():
-                reward += distance * self.reward_scale
+                self.reward += self.distance * self.reward_scale
                 self.out_of_road_count=0
-                # reward -= car_angle_change  * 2
-                # reward for still angle depend on distance, car_angle_change maximum is 2 so don't worry
-                # reward += diffsigmoid_decay(car_angle_change) * distance * self.reward_scale * 0.6 # <-- [0,1] maximum rate 0.5 2 is maximum angle 
-                # reward += diffsigmoid_decay(abs(self.car.get_control().steer)) * distance * self.reward_scale * 0.2 # <-- [0,1] maximum rate 0.5 2 is maximum angle 
-
+                self.color = "blue"
+     
              # Red area penalty
             elif (pixel_value == [0, 0, 255]).all():
-                reward -= distance * self.reward_scale
-                self.out_of_road_count+=3
+                self.reward -= self.distance * self.reward_scale * 0.8
+                self.out_of_road_count+=2
+                self.color = "red"
             # black area
             elif (pixel_value == [0, 0, 0]).all():
-                reward -= distance * self.reward_scale * 0.5
+                self.reward -= self.distance * self.reward_scale * 0.6
                 self.out_of_road_count+=1
+                self.color = "black"
+
+            elif (pixel_value == [0, 255, 0]).all():
+                self.reward -= self.distance * self.reward_scale * 0.2
+                self.color = "green"
+
    
 
         if self.out_of_road_count > self.out_of_road_count_limit:
             self.terminate = True
+            self.reward -= 5
             self.reason = "out of the path for too long"
 
-        # determine steer
-        curr_steer = self.car.get_control().steer
-        car_angle_change = abs(curr_steer - self.prev_steer)
-        self.prev_steer = curr_steer
-        
-        # panish should lower than get car out of path, expect most value is 0.4 so it already lower than out of road punish 
-        reward -= car_angle_change * distance * self.reward_scale
 
-        # small reward when can keep to steer at 0 for make it try to keep it strigth
-        reward += norm_dist(curr_steer) * distance * self.reward_scale * 0.4
-
-        return reward,self.terminate,self.reason
     
 class RewardCoins:
 
@@ -172,6 +215,163 @@ class RewardCoins:
 rewarder_type = {'RewardDummy':RewardDummy,
                  'RewardPath':RewardPath,
                  'RewardCoins':RewardCoins} 
+
+
+
+# class RewardPath:
+
+#     def __init__(self,
+#                   mask_path,
+#                   vehicle,
+#                   collision_sensor):
+#         # reference point is position 0,0 in carla
+#         # scale is meter/pixel
+#         scale_path = os.path.join(os.path.dirname(mask_path),"scale.json")
+#         with open(scale_path, 'r') as file:
+#             data = json.load(file)
+#         self.m = data['scale']
+#         self.ref_point = data['ref_point']
+#         self.route = cv2.imread(mask_path, cv2.IMREAD_COLOR)
+#         self.car = vehicle
+#         self.colli = collision_sensor
+
+#         self.color = "blue"
+#         self.out_of_road_count_limit = 20
+#         self.staystill_limit = 25
+#         self.reward_scale = 4
+#         self.minimum_distance = 0.015
+
+#     def reset(self):
+#         self.started=False
+#         self.staystill_count = 0
+#         self.out_of_road_count = 0
+#         self.terminate = False
+#         self.reason = ""
+#         self.prev_position = None
+#         self.prev_steer = 0
+#         # self.prev_area = 1 # 1 is blue 2 is black 3 is red 4 is green
+#         return self.get_info()
+
+#     def _get_car_position_on_map(self, car_position):
+#         # Convert car position from CARLA coordinates to image coordinates
+#         x, y = car_position
+#         img_x = int(self.ref_point[1] +x * self.m)
+#         img_y = int(self.ref_point[0] +y * self.m)
+#         return img_x, img_y
+
+#     def __call__(self, being_obstructed=False):
+#         """
+#         condition
+#         - collision - get terminate , -20 score 
+#         for the rest it will depend on distance
+#         - stay still - if the distance change to small it will count as stay still , -1 score every step
+#         - steering -
+
+#         - forward
+#         - turning
+#         """
+#         if self.colli is None:
+#             raise Exception("rewarder not apply collision sensor yet")
+
+#         # terminate when coli with something that not road or road label
+#         if self.colli.collision:
+#             self.terminate = True
+#             self.reason = "collision terminate"
+#             return -20,self.terminate,self.get_info()
+
+#         # initial reward
+#         self.reward = 0
+#         # get distance
+#         self.get_distance()
+#         # if car move too slow
+#         self.stay_still_check(being_obstructed)
+#         # make steer not too shakky
+#         self.steer_check()
+#         # determine position - stay in blue reward out of blue panish
+#         self.out_path_check()
+
+
+#         return self.reward,self.terminate,self.get_info()
+    
+#     def get_info(self):
+#         return {"reason":self.reason,
+#                 "color":self.color}
+    
+#     def get_mask_color(self):
+#         return self.color
+    
+#     def get_distance(self):
+#         self.car_pos = self.car.get_location()
+#         if self.prev_position is None:
+#             self.prev_position = (self.car_pos.x,self.car_pos.y)
+#         self.distance = math.sqrt((self.car_pos.x-self.prev_position[0])**2+(self.car_pos.y-self.prev_position[1])**2)
+#         self.prev_position = (self.car_pos.x,self.car_pos.y)
+        
+    
+#     def stay_still_check(self,being_obstructed):
+#         # if car move too slow
+#         if self.distance < self.minimum_distance and being_obstructed:
+#             self.reward += 4
+#         elif self.distance < self.minimum_distance:
+#             self.staystill_count+=1
+#             if self.started:
+#                 self.reward -= 4
+#         else:
+#             self.started = True
+#             self.staystill_count=0
+
+#         if self.staystill_count>self.staystill_limit and self.started:
+#             self.terminate = True
+#             self.reason = "stay still for too long"
+#             self.reward = -10
+    
+#     def steer_check(self):
+#         # determine steer
+#         self.curr_steer = self.car.get_control().steer
+#         car_angle_change = abs(self.curr_steer - self.prev_steer)
+#         self.prev_steer = self.curr_steer
+        
+#         # panish should lower than get car out of path, the most range is 2 but
+#         # expect most value is 0.4 so it already lower than out of road punish 
+#         self.reward -= min(car_angle_change,0.4) * self.distance * self.reward_scale
+
+#         # small reward when can keep to steer at 0 for make it try to keep it strigth
+#         self.reward += norm_dist(self.curr_steer) * self.distance * self.reward_scale * 0.2
+
+#     def out_path_check(self):
+#         # determine position - stay in blue reward out of blue panish
+#         img_x, img_y = self._get_car_position_on_map((self.car_pos.x, self.car_pos.y))
+
+#         if 0 <= img_x < self.route.shape[1] and 0 <= img_y < self.route.shape[0]:
+#             pixel_value = self.route[img_y, img_x]
+            
+#             # Blue area reward
+#             if (pixel_value == [255, 0, 0]).all():
+#                 self.reward += self.distance * self.reward_scale
+#                 self.out_of_road_count=0
+#                 self.color = "blue"
+     
+#              # Red area penalty
+#             elif (pixel_value == [0, 0, 255]).all():
+#                 self.reward -= self.distance * self.reward_scale * 0.8
+#                 self.out_of_road_count+=2
+#                 self.color = "red"
+#             # black area
+#             elif (pixel_value == [0, 0, 0]).all():
+#                 self.reward -= self.distance * self.reward_scale * 0.6
+#                 self.out_of_road_count+=1
+#                 self.color = "black"
+
+#             elif (pixel_value == [0, 255, 0]).all():
+#                 self.reward -= self.distance * self.reward_scale * 0.2
+#                 self.color = "green"
+
+   
+
+#         if self.out_of_road_count > self.out_of_road_count_limit:
+#             self.terminate = True
+#             self.reward -= 5
+#             self.reason = "out of the path for too long"
 
     # def reward_pos(self):
 

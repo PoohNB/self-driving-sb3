@@ -19,7 +19,7 @@ def init_component(config):
     assert config['env_config']['discrete_actions'] is not None and \
     (config['observer_config']['config']['act_num'] ==1) or \
     config['env_config']['discrete_actions'] is None and \
-    (config['observer_config']['config']['act_num'] >=2)
+    (config['observer_config']['config']['act_num'] ==2)
 
     seg_model = HF_mask2Formermodel(**config['seg_config'])
     vae_encoder = VencoderWrapper(**config['vencoder_config'])
