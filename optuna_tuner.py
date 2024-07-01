@@ -22,8 +22,8 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 
 from utils import write_json
 
-from config.trainRL_config import ENV2
-CONFIG = ENV2
+from config.trainer_config import ENV_PPO
+CONFIG = ENV_PPO
 env = env_from_config(CONFIG,True)
 # env = DummyVecEnv([lambda: env])
 
@@ -42,7 +42,7 @@ def objective(trial: optuna.Trial) -> float:
 
     time.sleep(random.random() * 16)
 
-    step_mul = trial.suggest_categorical("step_mul", [4, 8, 16, 32, 64])
+    # step_mul = trial.suggest_categorical("step_mul", [4, 8, 16, 32, 64])
 
     sampled_hyperparams = sample_ppo_params(trial)
 
@@ -50,12 +50,12 @@ def objective(trial: optuna.Trial) -> float:
     os.makedirs(path, exist_ok=True)
 
     env = Monitor(env)
-    model = PPO("MlpPolicy", env=env, seed=None, verbose=0, tensorboard_log=path, **sampled_hyperparams)
+    model = PPO("MlpPolicy", env=env, seed=2024, verbose=0, tensorboard_log=path, **sampled_hyperparams)
 
-    stop_callback = StopTrainingOnNoModelImprovement(max_no_improvement_evals=4, min_evals=5, verbose=1)
+    stop_callback = StopTrainingOnNoModelImprovement(max_no_improvement_evals=4, min_evals=7, verbose=1)
     eval_callback = TrialEvalCallback(
         env, trial, best_model_save_path=path, log_path=path,
-        n_eval_episodes=3, eval_freq=2500, deterministic=False, callback_after_eval=stop_callback
+        n_eval_episodes=1, eval_freq=2500, deterministic=False, callback_after_eval=stop_callback
     )
 
     params = sampled_hyperparams

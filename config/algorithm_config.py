@@ -29,24 +29,6 @@ SAC1 = dict(policy = "MlpPolicy",
                             net_arch=[500, 300]),
     )
 
-SAC1_con = dict(policy = "MlpPolicy",
-        learning_rate= 5e-7,
-        buffer_size=300000,
-        batch_size=256,
-        ent_coef='auto',
-        gamma=0.98,
-        tau=0.02,
-        train_freq=64,
-        gradient_steps=64,
-        learning_starts=10000,
-        use_sde=True,
-        policy_kwargs=dict(log_std_init=-3,
-                            net_arch=[500, 300],
-                            use_sde= True),
-    )
-
-
-
 DDPG1 = dict(policy = "MlpPolicy",
         gamma=0.98,
         buffer_size=200000,
@@ -80,7 +62,10 @@ PPO2 = dict(policy = "MlpPolicy",
         n_steps=1024,
         batch_size=256,
         policy_kwargs=dict(activation_fn=th.nn.ELU,
-                           net_arch=dict(pi=[64, 64,64], vf=[64, 64,64])))
+                           net_arch=dict(pi=[500, 300], vf=[500, 300])))
+
+DQN1 = dict(policy = "MlpPolicy",
+            learning_rate=exp_schedule(1e-4, 1e-6, 2),)
 
 RNNPPO1 = dict(policy = "MlpLstmPolicy",
         learning_rate=exp_schedule(1e-4, 1e-6, 2),

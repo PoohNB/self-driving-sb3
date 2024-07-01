@@ -14,15 +14,15 @@ from config.algorithm_config import available_AlgorithmRL
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
+from config.trainer_config import ENV_SAC
 
 # Paths and configurations=============
-model_path = "RLmodel/SAC_6/model_100000_steps.zip"
+model_path = "RLmodel/SAC_6/model_300000_steps.zip"
 # model_path = "optuna_trials/PPO/trial_21/best_model.zip"
 manual_config = None
-seed = 2000
-record = False # get 1 video and 1 csv file of info of each step
-eval_times = 1
+seed = 2025
+record = True # get 1 video and 1 csv file of info of each step
+eval_times = 2
 #=============================
 
 if manual_config is None:

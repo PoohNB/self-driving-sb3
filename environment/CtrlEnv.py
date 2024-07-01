@@ -1,5 +1,5 @@
 
-from config.env.env_config import env_config_base
+from config.env.world_config import world_config_base
 from config.env.camera import front_cam,spectator_cam
 from environment.tools.action_wraper import OriginAction
 from environment.tools.hud import get_actor_display_name
@@ -48,7 +48,7 @@ class ManualCtrlEnv(CarlaImageEnv):
                  observer,
                  coach_config,
                  action_wrapper = OriginAction(), 
-                 env_setting =dict(**env_config_base,max_step=1000),
+                 world_config =dict(**world_config_base,max_step=1000),
                  cam_config_list=[front_cam], 
                  discrete_actions = None,
                  augment_image=False,
@@ -60,7 +60,7 @@ class ManualCtrlEnv(CarlaImageEnv):
         super().__init__(observer=observer,
                  coach_config=coach_config,
                  action_wrapper = action_wrapper, 
-                 env_setting =env_setting,
+                 world_config =world_config,
                  cam_config_list=cam_config_list, 
                  discrete_actions = discrete_actions,
                  activate_render = activate_render,

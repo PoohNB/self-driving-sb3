@@ -1,5 +1,5 @@
 
-from config.env.env_config import env_config_base
+from config.env.world_config import world_config_base
 from config.env.camera import front_cam,spectator_cam
 from environment.tools.action_wraper import OriginAction
 from environment.tools.hud import get_actor_display_name
@@ -46,7 +46,7 @@ class CarlaImageEnv(gym.Env):
                  observer,
                  coach_config,
                  action_wrapper = OriginAction(), 
-                 env_setting =dict(**env_config_base,max_step=1000),
+                 world_config =dict(**world_config_base,max_step=1000),
                  cam_config_list=[front_cam], 
                  discrete_actions = None,
                  activate_render = False,
@@ -63,7 +63,6 @@ class CarlaImageEnv(gym.Env):
         random.seed(seed)
         # param ======================================================================================
         
-        self.maneuvers_set = {-1:'left',0:'forword',1:'right'}
         self.observer = observer
         self.action_wraper = action_wrapper
         self.discrete_actions = discrete_actions
@@ -72,12 +71,13 @@ class CarlaImageEnv(gym.Env):
         self.render_observer  = render_observer 
         self.rand_weather = rand_weather
 
-        self.env_config = env_setting
-        self.max_step = env_setting['max_step']
-        self.fps = 1/env_setting['delta_frame']
+        self.env_config = world_config
+        self.max_step = world_config['max_step']
+        self.fps = 1/world_config['delta_frame']
 
         self.closed_env = False
         self.episode_idx =0
+
 
         # set gym space ==============================================================================
 
@@ -90,23 +90,20 @@ class CarlaImageEnv(gym.Env):
             self.num_discrete = len(discrete_actions)
             self.action_space = spaces.Discrete(self.num_discrete)
 
-
-        num_maneuver = len(coach_config['scene_configs'][0]['cmd_config']['configs'][0]['cmd'])
-        self.observation_space = spaces.Box(low=np.finfo(np.float32).min,
-                                                high=np.finfo(np.float32).max,
-                                                shape=(1, self.observer.len_latent+num_maneuver),
-                                                dtype=np.float32)
-        
-        print(f"observation space shape: {self.observation_space.shape}")
         print(f"action space shape: {self.action_space.shape}")
+
+    
+        self.observation_space = observer.get_gym_space()
+        print(f"observation space shape: {self.observation_space.shape}")
+
             
-        self.world = World(env_setting['host'],env_setting['port'],env_setting['delta_frame'])
+        self.world = World(world_config['host'],world_config['port'],world_config['delta_frame'])
         self.spawn_points = self.world.get_map().get_spawn_points()
 
         try:
             # create actor
             self.car = VehicleActor(self.world,
-                            env_setting['vehicle'],
+                            world_config['vehicle'],
                             self.spawn_points[0])
             
             # dash cam ===
@@ -121,7 +118,8 @@ class CarlaImageEnv(gym.Env):
             self.colli_sensor = CollisionSensor(self.world,self.car)
             weak_self = weakref.ref(self)
             self.coach = Coach(**coach_config,
-                                      env=weak_self)
+                                      env=weak_self)      
+    
 
             if self.activate_render:
                 # cam for save video and visualize ===
@@ -160,9 +158,8 @@ class CarlaImageEnv(gym.Env):
         self.update_infos()
         # get the initial observation ========================================================
         self.list_images = self.world.get_all_obs()
-        self.latent = self.observer.reset(self.list_images)
+        self.obs = self.observer.reset(self.list_images)
         # print(self.latent,self.maneuver)
-        self.obs = np.concatenate((self.latent,self.maneuver))
         if self.activate_render:
             self.spec_image = self.spectator.get_obs()
             self.render()
@@ -208,8 +205,7 @@ class CarlaImageEnv(gym.Env):
 
         # get image from camera
         self.list_images = self.world.get_all_obs()
-        self.latent = self.observer.step(imgs = self.list_images,act=action)
-        self.obs = np.concatenate((self.latent,self.maneuver))     
+        self.obs = self.observer.step(imgs = self.list_images,act=action,maneuver=self.maneuver)  
 
         # basic termination -> colision or reach max step or out of the rount more than n step 
         done = self.colli_sensor.collision or self.step_count > self.max_step or self.closed_env or terminate
@@ -296,13 +292,11 @@ class CarlaImageEnv(gym.Env):
                 y_offset += target_height
         
 
-        manv = self.maneuvers_set[self.maneuver[0]]
         list_of_strings = [f"{key}:{value}" for key, value in self.note.items()if key != "reason"]
         extra_info=[
             "Episode {}".format(self.episode_idx),
             "Step: {}".format(self.step_count),
             "",
-            f"Maneuver: {manv}",
             "Distance: % 7.3f m" % self.distance, 
             "Distance traveled: % 7d m" % self.total_distance,
             "speed:      % 7.2f km/h" % self.speed,

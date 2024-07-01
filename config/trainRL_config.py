@@ -46,24 +46,24 @@ observer_discrete = dict(name="SegVaeActHistObserver",
 
 
 # env_config ===============================================================
-manual_env_config = dict(env_setting = dict(**env_config_base,max_step =1000),
+manual_env_config = dict(world_config = dict(**world_config_base,max_step =1000),
                         cam_config_list=[front_cam], 
                         discrete_actions = [[-0.6,0.4],[-0.1,0.56],[0,0.6],[0,0.4],[0,0],[0.1,0.56],[0.6,0.4]],
                         coach_config = plan_easy_inner,
                         seed=2024,
                         rand_weather=False)
 
-env_config1 = dict(env_setting = dict(**env_config_base,max_step =1000),
+env_config1 = dict(world_config = dict(**world_config_base,max_step =1000),
                     cam_config_list=[front_cam], 
                     discrete_actions = [[-0.6,0.4],[-0.1,0.56],[0,0.6],[0,0.4],[0,0],[0.1,0.56],[0.6,0.4]],
                     coach_config = plan_easy_outer,
                     seed=2024,
                     rand_weather=False)
 
-env_config1_con = dict(env_setting = dict(**env_config_base,max_step =1000),
+env_config1_con = dict(world_config = dict(**world_config_base,max_step =1000),
                     cam_config_list=[front_cam], 
                     discrete_actions = None,
-                    coach_config = plan_easy_inner,
+                    coach_config = plan_med_inner,
                     seed=2024,
                     rand_weather=False)
   

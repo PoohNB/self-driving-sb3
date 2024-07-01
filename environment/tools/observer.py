@@ -55,10 +55,14 @@ class SegVaeObserver():
         self.seg = seg_model
         self.vae_encoder = vae_encoder
         self.vae_decoder = vae_decoder
+        self.len_latent = vae_encoder.latent_dims
 
-    def gym_obs(self):
-
-        raise NotImplementedError("Method 'gym_obs' must be implemented in subclasses")
+    def get_gym_space(self):
+        return  spaces.Box(low=np.finfo(np.float32).min,
+                                                high=np.finfo(np.float32).max,
+                                                shape=(1, self.len_latent),
+                                                dtype=np.float32)
+    
     
     def reset(self,imgs):
 
@@ -156,8 +160,9 @@ class SegVaeActObserver(SegVaeObserver):
         self.latent_space = vae_encoder.latent_dims
         self.act_num = act_num
         self.len_latent = (self.latent_space+self.act_num)*num_img_input
-        
     
+
+        
     def reset(self,imgs):
 
         cat_latent = self.get_latent(imgs)
@@ -177,66 +182,56 @@ class SegVaeActObserver(SegVaeObserver):
     
 
 #==
-class SegVaeHistObserver():
-    """
-    class for convert image observation to state space
-    seg_model = HFsegwrapper module
-    vae_model = VencoderWrapper
 
-    """
+class SegVaeActHistManvObserver(SegVaeObserver):
 
-    def __init__(self,
-                 vae_model,
+    def __init__(self,                 
                  seg_model,
-                 latent_space,
-                 hist_len,
-                 skip_frame=0):
+                 vae_encoder,
+                 num_img_input,
+                 act_num=2,
+                 maneuver_num=1,
+                 hist_len = 8,
+                 skip_frame=0,
+                 vae_decoder=None):
+
         
-        self.seg = seg_model
-        self.vae = vae_model
-        self.latent_space = latent_space
+        super().__init__(seg_model=seg_model,
+                         vae_encoder=vae_encoder,
+                         vae_decoder=vae_decoder)
+
+        self.latent_space = vae_encoder.latent_dims
         self.skip_frame = skip_frame
         self.hist_len = hist_len
+        self.act_num = act_num
+        self.maneuver_num = maneuver_num
+        self.len_latent = (self.latent_space*num_img_input+self.act_num+self.maneuver_num)*self.hist_len
         self.history_state = deque(maxlen=self.hist_len*(self.skip_frame+1)-self.skip_frame)
 
-
-    def gym_obs(self):
-
-        self.observation_space = spaces.Box(low=np.finfo(np.float32).min,
-                                                high=np.finfo(np.float32).max,
-                                                shape=(1, (self.latent_space)*self.hist_len),
-                                                dtype=np.float32)
-        
-        return self.observation_space
-    
     def get_state(self):
-        return np.concatenate([self.history_state[i] for i in range(len(self.history_state)) if i%(self.skip_frame+1)==0])
-    
+        state = np.concatenate([self.history_state[i] for i in range(len(self.history_state)) if i%(self.skip_frame+1)==0])
+        return state
     
     def reset(self,imgs):
 
-        observation = self.get_latent(imgs)
+        cat_latent = self.get_latent(imgs)
+        observation = np.concatenate((cat_latent, [0]*self.act_num,[0]*self.maneuver_num), axis=-1)
         self.history_state.extend([observation]*((self.hist_len*(self.skip_frame+1))-self.skip_frame))
-        
+
         return self.get_state()
         
     def step(self,**arg):
 
-        imgs = arg["img"]
+        imgs = arg["imgs"]
+        act = arg["act"]
+        manv= arg['maneuver']
         
-        observation = self.get_latent(imgs)
+        cat_latent = self.get_latent(imgs)
+        observation = np.concatenate((cat_latent,act,manv), axis=-1)
         self.history_state.append(observation)
 
         return self.get_state()
-    
-    def get_latent(self,imgs):
-
-        pred_segs = self.seg(imgs)
-        latents = self.vae(pred_segs)
-        cat_latent = torch.cat(latents, dim=1)
-
-        return cat_latent
-
+        
 
 class ClipObserver:
 
@@ -270,5 +265,5 @@ observer_type = {'DummyObserver':DummyObserver,
                  'SegVaeObserver':SegVaeObserver,
                  'SegVaeActHistObserver':SegVaeActHistObserver,
                  'SegVaeActObserver':SegVaeActObserver,
-                 'SegVaeHistObserver':SegVaeHistObserver,
+                 'SegVaeActHistManvObserver':SegVaeActHistManvObserver,
                  'ClipObserver':ClipObserver}

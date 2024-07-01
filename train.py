@@ -7,16 +7,17 @@ from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.logger import configure
 import os
 
-from config.trainRL_config import *
+from config.trainer_config import *
 
-reload_model = ""#"RLmodel/SAC_5/model_100000_steps.zip"
-CONFIG = RL_SAC1
+reload_model = ""#"RLmodel/SAC_6/model_100000_steps.zip"
+CONFIG = RL_PPO1
 LOG_DIR = "runs/RL"
 SAVE_PATH = "RLmodel"
 RENDER = True
-
+# =======================================================================
 algo_config = CONFIG['train']["algorithm"]
 train_config = CONFIG['train']['train_config']
+
 
 if algo_config['method'] not in available_AlgorithmRL:
     raise ValueError("Invalid algorithm name")
@@ -39,6 +40,8 @@ try:
                         device='cuda',
                     **algo_config['model_config'])
     else:
+        if algo_config['method'] =="SAC":
+            algo_config['model_config']['policy_kwargs']['use_sde'] =True
         model = AlgorithmRL.load(reload_model, env=env, device='cuda', **algo_config['model_config'])
 
     model.set_logger(new_logger)

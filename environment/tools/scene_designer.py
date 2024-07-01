@@ -127,7 +127,7 @@ class LocateObject:
         plt.show()
 
     def get_click_history(self):
-        return self.click_history
+        return [(round(x, 2), round(y, 2)) for x, y in self.click_history]
     
     def show_map_with_click(self):
         def update_view(x, y):
@@ -202,6 +202,7 @@ class ObjectPlacer:
                  rest_area: Union[List,Tuple]):
 
         self.world = world
+        self.carla_map = self.world.get_map()
 
         self.configs = scene_config_list
 
@@ -316,9 +317,8 @@ class VehiclePlacer(ObjectPlacer):
 
     def roadpoint_preprocess(self, loc: Tuple[float, float]) -> carla.Waypoint:
         """Get the closest waypoint to a given location."""
-        carla_map = self.world.get_map()
         carla_location = carla.Location(*loc, 0.1)
-        transform = carla_map.get_waypoint(carla_location, project_to_road=True, lane_type=(carla.LaneType.Driving)).transform
+        transform = self.carla_map.get_waypoint(carla_location, project_to_road=True, lane_type=(carla.LaneType.Driving)).transform
         if self.reverse:
             transform.rotation.yaw += 180
             if transform.rotation.yaw >= 360:

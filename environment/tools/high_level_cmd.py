@@ -11,16 +11,15 @@ class DirectionCmd:
     """
 
 
-    def __init__(self, cmd_configs: List[Dict]):
+    def __init__(self, cmd_configs: List[Dict],default_cmd):
         self.cmd_configs = cmd_configs
-        self.default_direct = [0]
-
+        self.default_direct = default_cmd
     def reset(self):
         self.check_in = False
         self.curr_cmd = self.default_direct
         self.activate_pillar = None
-        
-        return np.array(self.curr_cmd)
+        self.spawn_inside = True
+        return self.curr_cmd
 
     def __call__(self, curr_pos: Tuple[float, float]):
             
@@ -33,11 +32,17 @@ class DirectionCmd:
                     self.rand_number = random.uniform(0, self.outer_rad - self.inner_rad)
                     self.activate_pillar = i
                     self.pillar_cmd = cf['cmd']
+                    self.previous_distance = distance
                     break
+            self.spawn_inside = False
         else:            
             # self.cmd_configs[self.activate_pillar]
 
             distance = calculate_distance(self.pillar_loc, curr_pos)
+            
+            if self.spawn_inside:
+                if self.previous_distance < distance:
+                    self.check_in=True
 
             if not self.check_in:
 
@@ -59,7 +64,7 @@ class DirectionCmd:
 
 
 
-        return np.array(self.curr_cmd)
+        return self.curr_cmd
     
 
 
