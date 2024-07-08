@@ -3,14 +3,16 @@ import torch as th
 import numpy as np
 from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3 import SAC,PPO,DDPG,DQN
-from sb3_contrib import RecurrentPPO
+from sb3_contrib import RecurrentPPO,TQC
 
 available_AlgorithmRL = {
     "SAC":SAC,
     "PPO":PPO,
     "DDPG":DDPG,
     "RecurrentPPO":RecurrentPPO,
-    "DQN":DQN
+    "DQN":DQN,
+    "TQC":TQC
+
 }
 
 
@@ -28,6 +30,22 @@ SAC1 = dict(policy = "MlpPolicy",
         policy_kwargs=dict(log_std_init=-3,
                             net_arch=[500, 300]),
     )
+
+TQC1 = dict(policy = "MlpPolicy",
+        learning_rate=exp_schedule(1e-4, 5e-7, 2),
+        buffer_size=300000,
+        batch_size=256,
+        ent_coef='auto',
+        gamma=0.98,
+        tau=0.02,
+        train_freq=64,
+        gradient_steps=64,
+        learning_starts=10000,
+        use_sde=True,
+        policy_kwargs=dict(log_std_init=-3,
+                            net_arch=[500, 300]),
+    )
+
 
 DDPG1 = dict(policy = "MlpPolicy",
         gamma=0.98,

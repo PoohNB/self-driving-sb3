@@ -17,12 +17,12 @@ logger = logging.getLogger(__name__)
 from config.trainer_config import ENV_SAC
 
 # Paths and configurations=============
-model_path = "RLmodel/SAC_6/model_300000_steps.zip"
+model_path = "RLmodel/TQC_1/model_200000_steps.zip"
 # model_path = "optuna_trials/PPO/trial_21/best_model.zip"
 manual_config = None
-seed = 2025
+seed = 1234
 record = True # get 1 video and 1 csv file of info of each step
-eval_times = 2
+eval_times = 10
 #=============================
 
 if manual_config is None:
@@ -62,7 +62,8 @@ try:
     env = GymWrapper(env)
 
     # Load the model
-    Policy = available_AlgorithmRL[model_path.split('/')[1].split('_')[0]]
+    policy_name = model_path.split('/')[1].split('_')[0]
+    Policy = available_AlgorithmRL[policy_name]
     model = Policy.load(model_path, env=env, device='cuda')
 
     logger.info("Model and environment loaded successfully.")
@@ -87,7 +88,9 @@ try:
         obs_shape = obs.shape[0]
 
         while not done:
-            action, _states = model.predict(obs.reshape((1,obs_shape)))#
+    
+            action, _ = model.predict(obs.reshape((1,obs_shape)) ,deterministic=True)#
+  
             obs, reward, done, info = env.step(action)
             total_reward += reward
             rendered_frame = env.get_spectator_image()

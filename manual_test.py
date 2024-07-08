@@ -8,19 +8,22 @@ import os,sys
 import traceback
 
 sync = True
+MANUAL_ENV['env_config']['seed'] = 1234
 env = manualctrlenv_from_config(MANUAL_ENV,sync)
+ep=3
 try:
-    obs = env.reset()
-    done = False
-    step = 0
+    for _ in range(ep):
+        obs = env.reset()
+        done = False
+        step = 0
 
-    while not done:
-        # action, _states = model.predict(obs.reshape((1,272)))#
-        obs, reward, done, info = env.step()
-        # if episode >0:
-        #     time.sleep(1)
+        while not done:
+            # action, _states = model.predict(obs.reshape((1,272)))#
+            obs, reward, done, info = env.step()
+            # if episode >0:
+            #     time.sleep(1)
 
-    print(info)
+        print(info)
 
 except Exception as e:
     # exc_type, exc_obj, exc_tb = sys.exc_info()

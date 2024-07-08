@@ -228,7 +228,7 @@ class CarlaImageEnv(gym.Env):
             self.render()
             self.pygamectrl.receive_key()
         
-        return  self.obs,self.reward,done,False,info
+        return  self.obs,self.reward,done,self.closed_env,info
     
     def get_raw_images(self):
         return self.list_images

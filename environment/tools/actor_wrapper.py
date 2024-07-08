@@ -31,7 +31,7 @@ class CarlaActorBase:
             world.append_observer(self)
         else:
             world.append(self)
-        print(f"initialize {tag} actor")
+        print(f"initialize {tag} actor id {self.actor.id}")
 
     def destroy(self):
         if self.destroyed:
@@ -377,10 +377,7 @@ class PedestrianActor(CarlaActorBase):
         return self.ped
     
     def move(self,transform):
-        self.ped.set_simulate_physics(False)
         self.ped.set_transform(transform)
-        time.sleep(0.01)  # Optional, test if necessary
-        self.ped.set_simulate_physics(True)
 
     def get_xy_location(self):
         loc = self.veh.get_location()

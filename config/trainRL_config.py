@@ -49,7 +49,7 @@ observer_discrete = dict(name="SegVaeActHistObserver",
 manual_env_config = dict(world_config = dict(**world_config_base,max_step =1000),
                         cam_config_list=[front_cam], 
                         discrete_actions = [[-0.6,0.4],[-0.1,0.56],[0,0.6],[0,0.4],[0,0],[0.1,0.56],[0.6,0.4]],
-                        coach_config = plan_easy_inner,
+                        coach_config = plan_hard_full,
                         seed=2024,
                         rand_weather=False)
 

@@ -27,6 +27,20 @@ def diffsigmoid_decay(x):
 def shift_sigmoid(x):
     return 1/(1+np.exp(-12*(x-0.6)))
 
+# Get the angular velocity
+# angular_velocity_vector = car.get_angular_velocity()
+# # Calculate the yaw rate (assuming flat terrain, thus yaw is the main component)
+# yaw_rate = angular_velocity_vector.z
+
+def centrifugal_force(v,w,m=1):
+    if w != 0:
+        r = v / abs(w)
+        return m * (v**2) / r
+    else:
+        return 0 
+
+
+
 class RewardDummy:
 
     def __init__(self):
@@ -86,6 +100,8 @@ class RewardPath:
         self.prev_position = None
         self.prev_steer = 0
         self.prev_steer_side = 0
+        self.total_distance = 0
+        self.step = 0
         # self.prev_area = 1 # 1 is blue 2 is black 3 is red 4 is green
         return self.get_info()
 
@@ -113,7 +129,7 @@ class RewardPath:
         being_obstructed = args['being_obstructed']
         maneuver = args['maneuver']
         # terminate when coli with something that not road or road label
-
+        self.step +=1
         # initial reward
         self.reward = 0
         # get distance
@@ -127,14 +143,14 @@ class RewardPath:
         # determine position - stay in blue reward out of blue panish
         self.out_path_check()
         
-        # if self.terminate:
-            # self.reward = self.terminate_reward
 
         return self.reward,self.terminate,self.get_info()
     
     def get_info(self):
         return {"reason":self.reason,
-                "color":self.color}
+                "color":self.color,
+                "angular velocity":f"{self.car.get_angular_velocity().z:.3f}",
+                "centrifugal force":f"{centrifugal_force(v=self.car.get_xy_velocity(),w=self.car.get_angular_velocity().z):.2f}"}
     
     def check_status(self):
         self.car_pos = self.car.get_location()
@@ -142,6 +158,7 @@ class RewardPath:
             self.prev_position = (self.car_pos.x,self.car_pos.y)
         self.distance = math.sqrt((self.car_pos.x-self.prev_position[0])**2+(self.car_pos.y-self.prev_position[1])**2)
         self.prev_position = (self.car_pos.x,self.car_pos.y)
+        self.total_distance+=self.distance
 
         # determine position - stay in blue reward out of blue panish
         img_x, img_y = self._get_car_position_on_map((self.car_pos.x, self.car_pos.y))
@@ -174,6 +191,8 @@ class RewardPath:
         if self.distance < self.minimum_distance and being_obstructed:
             self.reward += self.max_distance*self.reward_scale
         elif self.distance < self.minimum_distance:
+            if self.step>15:
+                self.started=True
             if self.started:
                 self.staystill_count+=1
                 self.reward -= self.max_distance*self.reward_scale*2
@@ -250,8 +269,52 @@ class RewardPath:
             self.reward -= 5 * self.reward_scale
 
 
+class RewardPathv2(RewardPath):
 
+    def __init__(self,
+                  mask_path,
+                  vehicle,
+                  collision_sensor):
+        super().__init__(mask_path,
+                  vehicle,
+                  collision_sensor)
+    
+    def __call__(self, **args):
+        """
+        condition
+        - collision - get terminate , -20 score 
+        for the rest it will depend on distance
+        - stay still - if the distance change to small it will count as stay still , -1 score every step
+        - steering -
 
+        - forward
+        - turning
+        """
+        if self.colli is None:
+            raise Exception("rewarder not apply collision sensor yet")
+
+        being_obstructed = args['being_obstructed']
+        maneuver = args['maneuver']
+        # terminate when coli with something that not road or road label
+        self.step +=1
+        # initial reward
+        self.reward = 0
+        # get distance
+        self.check_status()
+        # check collision
+        self.collision_check()
+        # if car move too slow
+        self.stay_still_check(being_obstructed)
+        # determine position - stay in blue reward out of blue panish
+        self.out_path_check()
+        # comfort
+        self.comfort_check()
+        
+
+        return self.reward,self.terminate,self.get_info()
+
+    def comfort_check(self):
+        pass
 
     
 class RewardCoins:

@@ -33,6 +33,9 @@ FLAGS(sys.argv)
 
 study_path = "optuna_trials/PPO"
 
+os.makedirs(study_path, exist_ok=True)
+
+
 with open(f"{study_path}/env_config.pkl",'wb+') as f:
     pkl.dump(CONFIG,f)
 

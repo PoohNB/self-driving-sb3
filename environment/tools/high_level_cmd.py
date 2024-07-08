@@ -33,7 +33,7 @@ class DirectionCmd:
                     self.activate_pillar = i
                     self.pillar_cmd = cf['cmd']
                     self.previous_distance = distance
-                    break
+                    return self.curr_cmd
             self.spawn_inside = False
         else:            
             # self.cmd_configs[self.activate_pillar]
@@ -41,10 +41,13 @@ class DirectionCmd:
             distance = calculate_distance(self.pillar_loc, curr_pos)
             
             if self.spawn_inside:
-                if self.previous_distance < distance:
+                if (self.previous_distance - distance) < -0.01:
                     self.check_in=True
+                    self.spawn_inside = False
+                elif (self.previous_distance - distance) > 0.01:
+                    self.spawn_inside = False
 
-            if not self.check_in:
+            elif not self.check_in:
 
                 if distance < self.inner_rad + self.rand_number:
                     self.curr_cmd = self.pillar_cmd
