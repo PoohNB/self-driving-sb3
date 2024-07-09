@@ -32,13 +32,13 @@ python train.py TQC TQC1 continuous --level 2 --load_model RLmodel/TQC_4/model_3
 
 
 ## how to experiment on custom route, map, more
-
+[Instructions for installing CARLA ...]
 ## not implement yet, todo
-more complex model like transformer 
-pedestrian
+* more complex model like transformer 
+* pedestrian
 
 # Credit
-https://github.com/alberto-mate/CARLA-SB3-RL-Training-Environment
-https://github.com/idreesshaikh/Autonomous-Driving-in-Carla-using-Deep-Reinforcement-Learning.git
-https://github.com/CppMaster/SC2-AI.git
+https://github.com/alberto-mate/CARLA-SB3-RL-Training-Environment  
+https://github.com/idreesshaikh/Autonomous-Driving-in-Carla-using-Deep-Reinforcement-Learning.git  
+https://github.com/CppMaster/SC2-AI.git  
 Mr.Siraphop..
