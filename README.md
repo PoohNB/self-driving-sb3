@@ -13,6 +13,8 @@ python test_env.py --map_name MapName --level 1 --eps 5 --seed 1234 --mode auto
 example
 ```
 python test_env.py --mode auto --level 0
+```
+```
 python test_env.py --mode manual --level 0
 ```
 ## train
@@ -25,7 +27,11 @@ can continue training by select the load_model
 example
 ```
 python train.py TQC TQC1 continuous --level 0
+```
+```
 python train.py TQC TQC1 continuous --level 1 --load_model RLmodel/TQC_3/model_200000_steps.zip
+```
+```
 python train.py TQC TQC1 continuous --level 2 --load_model RLmodel/TQC_4/model_300000_steps.zip
 ```
 ## eval
