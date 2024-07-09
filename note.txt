@@ -21,3 +21,6 @@ find /usr/local -name nvcc 2>/dev/null
 python train.py TQC TQC1 continuous --level 0
 python train.py TQC TQC1 continuous --level 1 --load_model RLmodel/TQC_3/model_200000_steps.zip
 python train.py TQC TQC1 continuous --level 2 --load_model RLmodel/TQC_4/model_300000_steps.zip
+
+python test_env.py --mode auto --level 0
+python test_env.py --mode manual --level 0

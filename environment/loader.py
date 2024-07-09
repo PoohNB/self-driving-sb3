@@ -13,7 +13,6 @@ from environment.tools.action_wraper import action_wrapper_type
 
 # carla environment
 from environment.CarlaEnv import CarlaImageEnv
-from environment.CtrlEnv import ManualCtrlEnv
 
 def init_component(config):
     assert config['env_config']['discrete_actions'] is not None and \
@@ -53,14 +52,14 @@ def env_from_config(config,RENDER):
     
     return env
 
-def manualctrlenv_from_config(config,sync):
+# def manualctrlenv_from_config(config,sync):
 
-    observer,action_wrapper =init_component(config)
-    env = ManualCtrlEnv(observer=observer,
-                    action_wrapper = action_wrapper,
-                    **config['env_config'])
+#     observer,action_wrapper =init_component(config)
+#     env = ManualCtrlEnv(observer=observer,
+#                     action_wrapper = action_wrapper,
+#                     **config['env_config'])
     
-    return env
+#     return env
     
 
 
