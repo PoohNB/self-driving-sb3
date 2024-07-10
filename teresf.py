@@ -1,11 +1,9 @@
-# from config.trainer_config import SAC_trainer
 
-# print(SAC_trainer.ENV_SAC)
-# print(getattr(SAC_trainer,"ENV_SAC"))
+print(getattr(SAC_trainer,"ENV_SAC"))
 
-from config.Config_loader import get_config
+# from config.Config_loader import get_train_config
 
-print(get_config("SAC","SAC1","continuous"))
+# print(get_train_config("SAC","SAC1","continuous"))
 
 # import argparse
 # import ast

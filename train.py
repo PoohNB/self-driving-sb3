@@ -7,7 +7,7 @@ from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.logger import configure
 import os
 
-from config.Config_loader import get_config
+from config.Config_loader import get_train_config
 import argparse
 
 def main():
@@ -15,21 +15,25 @@ def main():
 
     parser.add_argument('algorithm', type=str, help='The algorithm to use')
     parser.add_argument('model_config', type=str, help='The model configuration')
-    parser.add_argument('action_type', type=str, help='The type of action "continuous" or "discret"')
+    parser.add_argument('action_type', choices=['continuous', 'discrete'], help='The type of action "continuous" or "discret"')
     parser.add_argument('--map_name', type=str, default='AIT', help='The name of the map (default: AIT)')
     parser.add_argument('--level', type=int, default=0, help='The level (default: 0)')
     parser.add_argument('--load_model', type=str, default='', help='The path to the model to load (default: "")')
+    parser.add_argument('--total_timesteps', type=int, default=-1, help='total_timesteps')
 
     args = parser.parse_args()
 
     reload_model = args.load_model
-    CONFIG = get_config(args.algorithm, args.model_config, args.action_type, args.map_name, args.level)
+    CONFIG = get_train_config(args.algorithm, args.model_config, args.action_type, args.map_name, args.level)
     LOG_DIR = "runs/RL"
     SAVE_PATH = "RLmodel"
     RENDER = True
     # =======================================================================
     algo_config = CONFIG['train']["algorithm"]
     train_config = CONFIG['train']['train_config']
+
+    if args.total_timesteps >0:
+        train_config['total_timesteps']=args.total_timesteps
 
 
     if algo_config['method'] not in available_AlgorithmRL:

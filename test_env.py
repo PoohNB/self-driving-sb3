@@ -8,20 +8,20 @@ import traceback
 def env_run(args):
 
     episodes = 1
-    env_config,_ = get_env_config("continuous",args.map_name,args.level)
-    env_config['env_config']['seed']=args.seed
+    ENV_config,_ = get_env_config("continuous",args.map_name,args.level)
+    ENV_config['env_config']['seed']=args.seed
     if args.mode == "manual":
-        env_config['actionwrapper'] = dict(name="OriginAction",
+        ENV_config['actionwrapper'] = dict(name="OriginAction",
                     config=dict(steer_still_range = 0))
-    env = env_from_config(env_config,True)
+    env = env_from_config(ENV_config,True)
     if args.mode == "manual":
         env.pygamectrl.init_control()
     # env = GymWrapper(env)
     try:
 
 
-        for episode in range(episodes):
-            obs,_ = env.reset()
+        for _ in range(episodes):
+            _,_ = env.reset()
             trunt = False
             step = 0
 
@@ -35,7 +35,7 @@ def env_run(args):
                         action = [0.0,1.0]
                     else:
                         action = [1.0,1.0]
-                obs, reward, done,trunt, info = env.step(action)
+                _, _, done,trunt, info = env.step(action)
                 step+=1
 
                 if args.mode == "auto":

@@ -52,14 +52,7 @@ def env_from_config(config,RENDER):
     
     return env
 
-# def manualctrlenv_from_config(config,sync):
 
-#     observer,action_wrapper =init_component(config)
-#     env = ManualCtrlEnv(observer=observer,
-#                     action_wrapper = action_wrapper,
-#                     **config['env_config'])
-    
-#     return env
     
 
 

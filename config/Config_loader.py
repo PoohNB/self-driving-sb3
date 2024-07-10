@@ -7,24 +7,26 @@ import ast
 
 from config import levels
 
-def get_env_config(action_type,map_name="AIT",level=0):
+
+def get_level_config(map_name="AIT",level=0):
     selected_map = getattr(levels,map_name)
     selected_level = selected_map.levels[level]
     env_config_base = selected_map.env_config_base
 
-    env_config_base['discrete_actions'] = None
+    return selected_level,env_config_base
 
-    env_config1 = dict( **selected_level['env'],
-                        **env_config_base
-                        )
 
-    env_config_base['discrete_actions'] = discret_actions
+def get_env_config(action_type,map_name="AIT",level=0):
 
-    env_config2 = dict( **selected_level['env'],
-                        **env_config_base
-                        )
+    selected_level,env_config_base=get_level_config(map_name,level)
 
     if action_type == "continuous":
+
+        env_config_base['discrete_actions'] = None
+
+        env_config1 = dict( **selected_level['env'],
+                        **env_config_base
+                        )
 
         envEx= dict(observer_config=observer_con_manv,
                 seg_config=fbm2f_fp16_1280,
@@ -34,6 +36,12 @@ def get_env_config(action_type,map_name="AIT",level=0):
                 actionwrapper= limitaction2,)
     
     elif action_type == "discrete":
+
+        env_config_base['discrete_actions'] = discret_actions
+
+        env_config2 = dict( **selected_level['env'],
+                        **env_config_base
+                        )
 
         envEx= dict(observer_config=observer_con_manv,
                 seg_config=fbm2f_fp16_1280,
@@ -48,7 +56,7 @@ def get_env_config(action_type,map_name="AIT",level=0):
     return envEx,selected_level
 
 
-def get_config(algorithm,model_config,action_type,map_name="AIT",level=0):
+def get_train_config(algorithm,model_config,action_type,map_name="AIT",level=0):
 
     envEx,selected_level = get_env_config(action_type=action_type,
                    map_name=map_name,
