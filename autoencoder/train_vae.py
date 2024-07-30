@@ -41,18 +41,18 @@ train_data, val_data = random_split(train_data, [round(m-m*0.15), round(m*0.15)]
 
 
 # Data Loading
-trainloader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True,num_workers=4,pin_memory=True)
-validloader = DataLoader(val_data, batch_size=BATCH_SIZE, shuffle=True,num_workers=4,pin_memory=True)
+trainloader = DataLoader(train_data, batch_size=train_config1['BATCH_SIZE'], shuffle=True,num_workers=4,pin_memory=True)
+validloader = DataLoader(val_data, batch_size=train_config1['BATCH_SIZE'], shuffle=True,num_workers=4,pin_memory=True)
 # testloader = torch.utils.data.DataLoader(test_data, batch_size=BATCH_SIZE)
 
-model = VariationalAutoencoder(latent_dims=LATENT_SPACE)
-optim = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+model = VariationalAutoencoder(latent_dims=train_config1['LATENT_SPACE'])
+optim = torch.optim.Adam(model.parameters(), lr=train_config1['LEARNING_RATE'])
 
 
 model.Trainer(trainloader=trainloader,
                 valloader=validloader,
                 optim=optim,
-                num_epochs = NUM_EPOCHS,
+                num_epochs = train_config1['NUM_EPOCHS'],
                 log_path=log_path,
                 checkpoint_path = checkpoint_path)
 

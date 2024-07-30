@@ -18,6 +18,14 @@ from stable_baselines3.common.results_plotter import load_results, ts2xy, plot_r
 import numpy as np
 import os
 import re
+import ast
+
+def parse_control(arg):
+        return ast.literal_eval(arg)
+
+def get_filtered_attribute_names(module, prefix):
+    attribute_names = [attr for attr in dir(module) if attr.startswith(prefix)]
+    return attribute_names
 
 
 def create_policy_paths(save_path,log_dir,policy_name):
@@ -131,6 +139,7 @@ class TensorboardCallback(BaseCallback):
             self.logger.record("custom/total_reward", self.locals['infos'][0]['total_reward'])
             self.logger.record("custom/total_distance", self.locals['infos'][0]['total_distance'])
             # self.logger.record("custom/avg_center_dev", self.locals['infos'][0]['avg_center_dev'])
+            self.logger.record("custom/steer", self.locals['infos'][0]['steer'])
             self.logger.record("custom/avg_speed", self.locals['infos'][0]['avg_speed'])
             self.logger.record("custom/mean_reward", self.locals['infos'][0]['mean_reward'])
             self.logger.dump(self.num_timesteps)

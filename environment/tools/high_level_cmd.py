@@ -11,7 +11,7 @@ class DirectionCmd:
     """
 
 
-    def __init__(self, cmd_configs: List[Dict],default_cmd):
+    def __init__(self, cmd_configs: List,default_cmd):
         self.cmd_configs = cmd_configs
         self.default_direct = default_cmd
     def reset(self):
@@ -69,6 +69,3 @@ class DirectionCmd:
 
         return self.curr_cmd
     
-
-
-high_level_cmd_type={"DirectionCmd":DirectionCmd}

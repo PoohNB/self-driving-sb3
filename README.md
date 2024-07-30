@@ -1,7 +1,7 @@
 
 
 # Description
-this repository is the part of thesis project "CURRICULUM SIM2REAL LEARNING FOR END-TO-END AUTONOMOUS DRIVING USING SEMANTIC SEGMENTATION AND REINFORCEMENT LEARNING" 
+this repository is the part of thesis project "" 
 The goal is to train a left-lane side autonomous driving car on a custom map (AIT).
 
 ## install carla ... 
@@ -18,30 +18,30 @@ python test_env.py --mode auto --level 0
 python test_env.py --mode manual --level 0
 ```
 ## train
-```
-python train.py algorithm_name model_config action_type --map_name MapName --level number --load_model model_path
-```
+
 note: 
 model_config have to add in config/algorithm_config.py to available to choose or just pass config directly to command line
 can continue training by select the load_model
 example
-```
-python train.py TQC TQC1 continuous --level 0
-```
-```
-python train.py TQC TQC1 continuous --level 1 --load_model RLmodel/TQC_3/model_200000_steps.zip
-```
-```
-python train.py TQC TQC1 continuous --level 2 --load_model RLmodel/TQC_4/model_300000_steps.zip
-```
-## eval
 
+## eval
+```
+python eval.py model_path --level 2 --eps 5 --seed 1234 --record
+
+```
+
+example
+```
+
+```
 
 ## how to experiment on custom route, map, more
 [Instructions for installing CARLA ...]
 ## not implement yet, todo
 * more complex model like transformer 
 * pedestrian
+## note
+* not suppoprt tensorrt yet
 
 # Credit
 https://github.com/alberto-mate/CARLA-SB3-RL-Training-Environment  

@@ -1,7 +1,7 @@
 
-from config.env.world_config import world_config_base
+from config.env.carla_sim import carla_setting
 from config.env.camera import front_cam,spectator_cam
-from environment.tools.action_wraper import OriginAction
+from environment.modules.action_wrapper import ActionBase
 from environment.tools.hud import get_actor_display_name
 from environment.tools.actor_wrapper import *
 from environment.tools.controllor import PygameControllor
@@ -21,32 +21,34 @@ import cv2
 class CarlaImageEnv(gym.Env):
 
     """
-    open-ai environment for work with carla simulation server
+    description:
+        this class is custom openai gym environment for work with carla environment
 
-    the function include 
-    - send list of image (np array) from camera to observer return the state from observer
-    - send the vehicle to rewarder return the reward from rewarder
-    - return done if vehicle on destination or collis or out from road or go wrong direction
-    - return info ??
-    - send the command for control the car
-    - construct the image to render in pygame
-
-    note for step: in real world after model receive image from camera it will use some time to predict the action (which is delta time between frame) 
-    then send the action and receive the next image simutaneosly so the step is not predict-->apply action-->tick world, 
-      but predict -->apply last action --> tick world or predict-->tick world-->apply function
+    args:
+        observer(object): class that receive image and convert it to desired state
+        coach_config(dict): config for manipulate the spawn points and object in the environments
+        action_wrapper(object): class for post process the action
+        carla_setting(dict): config for host,port,agent vehicle,frame duration
+        agent_model(str): car model of agent
+        max_step(int): limited time step of each episode
+        cam_config_list(list): list of config of camera for spawn camera sensor
+        discrete_actions(list): change the mode to discrete action([[steer,throttle]...]) this will deactivate the action_wrapper
+        activate_render(bool): render the image while training
+        render_raw(bool): render the raw images from camera
+        render_observer(bool): render the images from observer
+        augment_image(bool): activate image augmentation
+        rand_weather(bool): random weather
+        seed(int): set the random seed
 
     """
-    metadata = {
-        "render.modes": ["human", "rgb_array", "rgb_array_no_hud", "state_pixels"]
-    }
-
-
 
     def __init__(self,
                  observer,
                  coach_config,
-                 action_wrapper = OriginAction(), 
-                 world_config =dict(**world_config_base,max_step=1000),
+                 action_wrapper = ActionBase(), 
+                 carla_setting =carla_setting,
+                 agent_model = 'evt_echo_4s',
+                 max_step=1000,
                  cam_config_list=[front_cam], 
                  discrete_actions = None,
                  activate_render = False,
@@ -71,9 +73,9 @@ class CarlaImageEnv(gym.Env):
         self.render_observer  = render_observer 
         self.rand_weather = rand_weather
 
-        self.env_config = world_config
-        self.max_step = world_config['max_step']
-        self.fps = 1/world_config['delta_frame']
+        self.env_config = carla_setting
+        self.max_step = max_step
+        self.fps = 1/carla_setting['delta_frame']
 
         self.closed_env = False
         self.episode_idx =0
@@ -86,7 +88,7 @@ class CarlaImageEnv(gym.Env):
             self.action_space = spaces.Box(np.array([-1, 0]), np.array([1, 1]), dtype=np.float32) 
             
         else:
-            print("using discret action")
+            print("using discrete action")
             self.num_discrete = len(discrete_actions)
             self.action_space = spaces.Discrete(self.num_discrete)
 
@@ -97,14 +99,14 @@ class CarlaImageEnv(gym.Env):
         print(f"observation space shape: {self.observation_space.shape}")
 
             
-        self.world = World(world_config['host'],world_config['port'],world_config['delta_frame'])
+        self.world = World(carla_setting['host'],carla_setting['port'],carla_setting['delta_frame'])
         self.spawn_points = self.world.get_map().get_spawn_points()
 
         try:
             # create actor
             self.car = VehicleActor(self.world,
-                            world_config['vehicle'],
-                            self.spawn_points[0])
+                                    agent_model,
+                                    self.spawn_points[0])
             
             # dash cam ===
             self.dcam = []
@@ -183,6 +185,7 @@ class CarlaImageEnv(gym.Env):
         else:
             steer, throttle = self.discrete_actions[action]
             brake = False
+            # normalize to 0-1
             action = np.array([action/self.num_discrete])
 
         control = carla.VehicleControl(throttle=throttle, steer=steer, brake=brake,

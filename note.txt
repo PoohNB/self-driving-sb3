@@ -18,13 +18,69 @@ find $HOME -name nvcc 2>/dev/null
 find /usr/local -name nvcc 2>/dev/null
 
 
-python train.py TQC TQC1 continuous --level 0
+python train.py TQC TQC1 --level 0 --total_timesteps 50000 
 python train.py TQC TQC1 continuous --level 1 --load_model RLmodel/TQC_3/model_200000_steps.zip
 python train.py TQC TQC1 continuous --level 2 --load_model RLmodel/TQC_4/model_300000_steps.zip
-PPO1
+
+positional arguments:
+  algorithm             The algorithm to use
+  algo_config           The model configuration
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --obs_module {observer_con_manv,observer_discrete_manv,observer_raw}
+                        name of observer available in config/observer_config (default:
+                        "observer_con_manv")
+  --act_wrapper {action_limit,action_original}
+                        name of observer available in config/action_config (default:
+                        "action_limit")
+  --discrete_actions {discrete_actions1}
+                        name of observer available in config/action_config (default: None)
+  --map_name MAP_NAME   The name of the map (default: AIT)
+  --level LEVEL         The level (default: 0)
+  --load_model LOAD_MODEL
+                        The path to the model to load (default: "")
+  --total_timesteps TOTAL_TIMESTEPS
+                        total_timesteps
+  --render              render image while training (default: True)
+  --log_dir LOG_DIR     train log directory (default: "runs/RL")
+  --save_dir SAVE_DIR   model save directory (default: "RLmodel")
+
+
+
 python train.py PPO PPO1 continuous --level 0
 
 python test_env.py --mode auto --level 0
-python test_env.py --mode manual --level 0
+python test_env.py --mode manual --level 2
 
 python eval.py RLmodel/TQC_5/model_1300000_steps.zip --level 2 --eps 5 --seed 1234 --record
+
+RLmodel/SAC_19/model_50000_steps.zip
+
+
+SAC_19 -> reward distance,sparse panish on colis,stay still too long,out of path too long
+SAC_20 -> reward distance only,
+SAC_21 -> reward velo only
+SAC_22 -> reward sigmoid velo
+SAC_23 -> reward sigmoid velo but c=0.7 s=14
+SAC_24 -> reward sqrt velo
+SAC_24 -> reward sqrt distance
+SAC_25 -> reward sigmoid distance c=0.4 s=14
+SAC_26 -> reward sigmoid velo *100
+SAC_27 -> reward sigmoid velo *10
+SAC_28 -> reward sigmoid velo *4
+SAC_29 -> reward sigmoid velo *4 (SAC2)
+SAC_30 -> reward sigmoid velo *4 (SAC3)
+SAC_31 -> reward sigmoid velo *4 + jerk penalty (SAC2)
+SAC_32 -> reward sigmoid velo *4 + steer holding reward (SAC2)
+SAC_32 -> reward sigmoid velo *4 + jerk penalty (SAC2)
+
+
+SAC_40 -> reward sigmoid velo *3
+SAC_41 -> reward sigmoid velo *4 - angular velocity
+SAC_42 -> reward sigmoid velo *4 - angular velocity*0.8*4 inside blue
+SAC_43 -> reward sqrt velo *8 - angular velocity*0.8*8
+
+TQC_6 -> reward sigmoid velo *4
+
+RLmodel/SAC_14/model_1300000_steps.zip

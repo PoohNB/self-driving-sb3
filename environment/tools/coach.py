@@ -1,12 +1,14 @@
 
-from environment.tools.rewarder import rewarder_type
+from environment.tools import rewarder
 import numpy as np
 import random
 from environment.tools.scene_designer import VehiclePlacer,PedestriansPlacer
-from environment.tools.high_level_cmd import high_level_cmd_type
+from environment.tools import high_level_cmd
 import carla
 from typing import List, Tuple, Dict
 from environment.tools.utils import get_correspond_waypoint_transform
+
+
 class Coach:
 
     """
@@ -31,6 +33,7 @@ class Coach:
         self.total_score = 1
         self.curr_scene=0
         self.sp_idx=0
+        self.step =1
         self.cmd_decode = cmd_guide['cmd_dict']
         
         # spawn transform from config
@@ -41,30 +44,33 @@ class Coach:
         pedestrian_configs = [cf['ped_obsc'] for cf in self.scene_configs]          
         self.pedestrian_placer = PedestriansPlacer(self.world,pedestrian_configs,ped_area)
         # rewarder list
+
         rewarder_configs = [cf['rewarder_config'] for cf in self.scene_configs]
-        self.rewarders = [
-            rewarder_type[cf['name']](**cf['config'],
+        
+        self.rewarders = []
+        for cf in rewarder_configs:
+            rewarder_class = getattr(rewarder,cf['name'])
+            self.rewarders.append(rewarder_class(**cf['config'],
                                       vehicle=self.car,
-                                      collision_sensor = self.colli_sensor) 
-                                      for cf in rewarder_configs
-        ]
+                                      collision_sensor = self.colli_sensor) )
+                
         # cmd pillar
         default_cmd = cmd_guide['default_cmd']
         commander_configs = [cf['cmd_config'] for cf in self.scene_configs]
-        self.command_points = [
+        self.command_points=[]
+        for cf in commander_configs:
+            command_points_class = getattr(high_level_cmd,cf['name'])
+            self.command_points.append(command_points_class(cf['configs'],default_cmd))
 
-            high_level_cmd_type[cf['name']](cf['configs'],default_cmd)
-                    for cf in commander_configs
-
-        ]
     def get_len_maneuver(self):
 
         return len(list(self.cmd_decode.values())[0])
 
     def reset(self):
         # select scene
-        self.scene_scores[self.curr_scene][self.sp_idx] = max(1,self.total_score)
-        scene_weight = [1/sum(scores) for scores in self.scene_scores]
+        self.mean_score = self.total_score/self.step
+        self.scene_scores[self.curr_scene][self.sp_idx] = max(1,self.mean_score)
+        scene_weight = [1/(sum(scores)/len(scores)) for scores in self.scene_scores]
         self.curr_scene = random.choices(range(self.num_scenes),weights=scene_weight,k=1)[0]
         # Set the scene
         self.vehicle_placer.reset(self.curr_scene)
@@ -77,8 +83,8 @@ class Coach:
         spawn_weight = [1/score for score in self.scene_scores[self.curr_scene]]
         self.sp_idx = random.choices(range(len(self.spawn_trans[self.curr_scene])),weights=spawn_weight,k=1)[0]
         self.car.move(self.spawn_trans[self.curr_scene][self.sp_idx])
-        self.total_score = 1
         self.info['maneuver'] = self.maneuver
+        self.step =0
 
         return self.cmd_decode[self.maneuver],self.info
 
@@ -92,7 +98,7 @@ class Coach:
 
    
         self.score,self.terminate,self.info = self.rewarders[self.curr_scene](being_obstructed=False,maneuver=self.maneuver)
-  
+        self.step+=1
         self.total_score+=self.score
         self.info['maneuver'] = self.maneuver
         # translate to cmd
@@ -104,17 +110,3 @@ class Coach:
 
 
 
-
-
-    # def get_random_color(self):
-    #     r = random.randint(0, 255)
-    #     g = random.randint(0, 255)
-    #     b = random.randint(0, 255)
-    #     return f'{r},{g},{b}'
-    #     # if self.random_color: 
-    #     #     for veh in self.veh_list:
-    #     #         veh.set_attribute('color', self.get_random_color())
-
-    #     # for attr in blueprint:
-    #     # if attr.is_modifiable:
-    #     #     blueprint.set_attribute(attr.id, random.choice(attr.recommended_values))

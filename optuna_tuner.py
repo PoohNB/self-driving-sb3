@@ -19,11 +19,11 @@ from optuna_utils.sample_params.ppo import sample_ppo_params
 from optuna_utils.trial_eval_callback import TrialEvalCallback
 from environment.loader import env_from_config
 from stable_baselines3.common.vec_env import DummyVecEnv
-
+from config.Config_loader import get_env_config
 from utils import write_json
 
-from config.trainer_config import ENV_PPO
-CONFIG = ENV_PPO
+
+CONFIG = get_env_config(action_type="continuous")
 env = env_from_config(CONFIG,True)
 # env = DummyVecEnv([lambda: env])
 

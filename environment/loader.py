@@ -1,58 +1,57 @@
-# semantic segmentation
-from segmentation.seg_hf import HF_mask2Formermodel
-
-# variational autoencoder
-from autoencoder.vae_wrapper import VencoderWrapper,DecoderWrapper
-
 # observer module (convert raw input to proper state)
-# donb't need vae_decoder if not reconstruct the latent
-from environment.tools.observer import observer_type
+# don't need vae_decoder if not reconstruct the latent
+from environment.modules import observer
 
 # action wrapper (object to post process the action like smooth, limit range or discretize)
-from environment.tools.action_wraper import action_wrapper_type
+from environment.modules import action_wrapper
 
 # carla environment
 from environment.CarlaEnv import CarlaImageEnv
 
 def init_component(config):
-    assert config['env_config']['discrete_actions'] is not None and \
-    (config['observer_config']['config']['act_num'] ==1) or \
-    config['env_config']['discrete_actions'] is None and \
-    (config['observer_config']['config']['act_num'] ==2)
+    """
+    Initialize components based on the configuration.
 
-    seg_model = HF_mask2Formermodel(**config['seg_config'])
-    vae_encoder = VencoderWrapper(**config['vencoder_config'])
+    Args:
+        config (dict): Configuration dictionary with observer and action wrapper details.
 
-    if (config['decoder_config'] is not None):
-        vae_decoder = DecoderWrapper(**config['decoder_config'])
-    else:
-        vae_decoder = None
+    Returns:
+        tuple: Initialized observer and action wrapper objects.
+    """
+    try:
+        observer_class = getattr(observer, config['observer_config']['name'])
+        observer_ob = observer_class(**config['observer_config']['config'])
+    except (AttributeError, TypeError) as e:
+        raise ValueError(f"Error initializing observer: {e}")
 
-    observer = observer_type[config['observer_config']['name']](vae_encoder = vae_encoder,
-                                                                seg_model=seg_model,
-                                                                vae_decoder=vae_decoder,
-                                                                **config['observer_config']['config'])
-  
+    try:
+        action_wrapper_class = getattr(action_wrapper, config['actionwrapper']['name'])
+        action_wrapper_ob = action_wrapper_class(**config['actionwrapper']['config'])
+    except (AttributeError, TypeError) as e:
+        raise ValueError(f"Error initializing action wrapper: {e}")
 
-    action_wrapper = action_wrapper_type[config['actionwrapper']['name']](**config['actionwrapper']['config'])
+    return observer_ob, action_wrapper_ob
 
-    return observer,action_wrapper
+def env_from_config(config, RENDER):
+    """
+    Create environment instance from configuration.
 
+    Args:
+        config (dict): Configuration dictionary.
+        RENDER (bool): Flag to activate rendering.
 
+    Returns:
+        CarlaImageEnv: Initialized CarlaImageEnv object.
+    """
+    obs, action_wr = init_component(config)
 
-def env_from_config(config,RENDER):
-    observer,action_wrapper =init_component(config)
+    env = CarlaImageEnv(
+        observer=obs,
+        action_wrapper=action_wr,
+        activate_render=RENDER,
+        render_raw=RENDER,
+        render_observer=RENDER,
+        **config['env_config']
+    )
 
-    env = CarlaImageEnv(observer=observer,
-                    action_wrapper = action_wrapper,
-                    activate_render = RENDER, 
-                    render_raw=RENDER,
-                    render_observer=RENDER,
-                    **config['env_config'])
-    
     return env
-
-
-    
-
-

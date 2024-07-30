@@ -20,11 +20,14 @@ class CarlaActorBase:
                   actor,
                   tag="unknown"):
         
-        self.actor = actor
-        self.destroyed = False
-        self.tag = tag
-        self.wrapped_world = wrapped_world
-        self.append_to_world(self.wrapped_world,self.tag)
+        if actor is None:
+            del self
+        else:
+            self.actor = actor
+            self.destroyed = False
+            self.tag = tag
+            self.wrapped_world = wrapped_world
+            self.append_to_world(self.wrapped_world,self.tag)
 
     def append_to_world(self,world,tag):
         if tag =="obs":
@@ -316,14 +319,22 @@ class VehicleActor(CarlaActorBase):
     def __init__(self,
                  wrapped_world,
                  vehicle_name,
-                 spawn_point):
+                 spawn_point=None):
           
+        
         self.world = wrapped_world.get_carla_world()
         blueprints = self.world.get_blueprint_library()
-        bp_car = blueprints.filter(vehicle_name)[0]   
-        self.veh = self.world.try_spawn_actor(bp_car, spawn_point)
-        if self.veh is None:
-            print(f"Failed to spawn vehicle at Location (x={spawn_point.location.x:.2f}, y={spawn_point.location.y:.2f}, z={spawn_point.location.z:.2f})")
+        bp_car = blueprints.filter(vehicle_name)[0] 
+        if spawn_point is None:
+            spawn_points = self.world.get_map().get_spawn_points() 
+        else:
+            spawn_points = [spawn_point]
+        for spawn_point in spawn_points:
+            self.veh = self.world.try_spawn_actor(bp_car, spawn_point)
+            if self.veh is not None:
+                break
+            else:
+                print(f"Failed to spawn vehicle at Location (x={spawn_point.location.x:.2f}, y={spawn_point.location.y:.2f}, z={spawn_point.location.z:.2f})")
         self.traveled_dist = 0
 
         super().__init__(wrapped_world,self.veh,tag='car')

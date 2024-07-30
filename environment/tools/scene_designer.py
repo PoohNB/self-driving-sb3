@@ -430,7 +430,11 @@ class ObjectPlacer:
 
     def reset(self,scene_idx:int):
         scene = self.scenes[scene_idx]
-        sample_idx = random.sample(scene['idx'],round(scene['values']*scene['on_road_ratio']))
+        if scene['on_road_ratio'] == -1:
+            on_road_ratio = random.random()  # Generate a random ratio between 0 and 1
+        else:
+            on_road_ratio = scene['on_road_ratio']
+        sample_idx = random.sample(scene['idx'],round(scene['values']*on_road_ratio))
         self.randomly_place(sample_idx)
 
 

@@ -31,6 +31,28 @@ SAC1 = dict(policy = "MlpPolicy",
                             net_arch=[500, 300]),
     )
 
+SAC2 = dict(policy = "MlpPolicy",
+        learning_rate=exp_schedule(1e-4, 5e-7, 2),
+        use_sde=True,
+        policy_kwargs=dict(log_std_init=-3,
+                            net_arch=[500, 300]),
+    )
+
+SAC3 = dict(policy = "MlpPolicy",
+        learning_rate=exp_schedule(1e-4, 5e-7, 2),
+        buffer_size=300000,
+        batch_size=256,
+        ent_coef='auto',
+        gamma=0.98,
+        tau=0.02,
+        train_freq=64,
+        gradient_steps=64,
+        learning_starts=1000,
+        use_sde=True,
+        policy_kwargs=dict(log_std_init=-3,
+                            net_arch=[500, 300]),
+    )
+
 TQC1 = dict(policy = "MlpPolicy",
         learning_rate=exp_schedule(1e-4, 5e-7, 2),
         buffer_size=300000,
@@ -57,8 +79,9 @@ DDPG1 = dict(policy = "MlpPolicy",
         policy_kwargs=dict(net_arch=[400, 300]),
     )
 
+
 PPO1 = dict(policy = "MlpPolicy",
-        learning_rate=exp_schedule(1e-4, 1e-6, 2),
+        learning_rate=exp_schedule(1e-4, 1e-7, 2),
         gamma=0.98,
         gae_lambda=0.95,
         clip_range=0.2,
@@ -69,7 +92,7 @@ PPO1 = dict(policy = "MlpPolicy",
                            net_arch=dict(pi=[500, 300], vf=[500, 300])))
 
 PPO2 = dict(policy = "MlpPolicy",
-        learning_rate=exp_schedule(1e-4, 1e-6, 2),
+        learning_rate=exp_schedule(1e-6, 1e-7, 2),
         gamma=0.995,
         gae_lambda=0.9,
         max_grad_norm=0.5,

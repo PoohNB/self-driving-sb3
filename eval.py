@@ -36,22 +36,22 @@ def main():
     eval_times = args.eps
     #=============================
 
+    # load the saved env config for refference
     model_dir = os.path.dirname(model_path)
     checkpoint_name = os.path.basename(model_path)
     config_path = os.path.join(model_dir, "env_config.pkl")
     with open(config_path, 'rb') as file:
         loaded_env_config = pickle.load(file)
 
-    if loaded_env_config['env_config']['discrete_actions'] is None:
-        selected_level,env_config_base = get_level_config(args.map_name,args.level)
-        env_config1 = dict( **selected_level['env'],
-                        **env_config_base
-                        )
-        loaded_env_config['env_config'] = env_config1
-        
-    loaded_env_config['env_config']['seed']=args.seed
+    # edit the env config 
+    selected_level = get_level_config(args.map_name,args.level)
+    env_config1 = dict( **selected_level['env'],
+                    discrete_actions = loaded_env_config['env_config']['discrete_actions']
+                    )
+    loaded_env_config['env_config'] = env_config1
+    loaded_env_config['env_config']['seed']=seed
 
-
+    # record save : video, info, result of test
     if record:
         record_path = os.path.join("recorded",model_dir.split('/')[-1])
         os.makedirs(record_path,exist_ok=True)
@@ -59,16 +59,21 @@ def main():
         result_path = os.path.join(record_path,"result.json")
         csv_path = os.path.join(record_path,"infos.csv")
     # Load the configuration file
-
-
-
-
+    # print(loaded_env_config)
+    # set the selected seed
     loaded_env_config['seed'] = seed
-    if loaded_env_config['decoder_config'] is None:
-        loaded_env_config['decoder_config'] = dict(model_path =os.path.join(os.path.dirname(loaded_env_config['vencoder_config']['model_path']),"decoder_model.pth"),
-                                            latent_dims=loaded_env_config['vencoder_config']['latent_dims'])
+    # add the vae decoder if vae encoder exist
+    if "Vae" in loaded_env_config['observer_config']['name']:
+        if loaded_env_config.get('observer_config', {}).get('vae_decoder_config') is None:
+  
+            vencoder_model_path = loaded_env_config['observer_config']['vae_encoder_config']['model_path']
+            vencoder_latent_dims = loaded_env_config['observer_config']['vae_encoder_config']['latent_dims']
+            decoder_model_path = os.path.join(os.path.dirname(vencoder_model_path), "decoder_model.pth")
 
-    # CONFIG = RL1
+            loaded_env_config['observer_config']['vae_decoder_config'] = {
+                'model_path': decoder_model_path,
+                'latent_dims': vencoder_latent_dims
+            }
 
     try:
         
@@ -79,7 +84,7 @@ def main():
         # Load the model
         policy_name = model_path.split('/')[1].split('_')[0]
         Policy = available_AlgorithmRL[policy_name]
-        model = Policy.load(model_path, env=env, device='cuda')
+        model = Policy.load(model_path, device='cuda')
 
         logger.info("Model and environment loaded successfully.")
 

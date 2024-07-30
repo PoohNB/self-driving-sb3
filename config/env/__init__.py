@@ -1,6 +1,6 @@
 # __init__.py
-from .action_config import *
+
 from .camera import *
-from .world_config import *
-from .coach_config.ait_football import *
+from .carla_sim import *
+from .coach_config.scene_loader import get_scene_config,get_coach_base
 from .coach_config import AIT_scenes

@@ -1,0 +1,589 @@
+/home/lpr/project_nattabude/carla/self-driving-sb3
+├── app
+│   ├── agent.py
+│   ├── __init__.py
+│   ├── mode.py
+│   └── ui.py
+├── autoencoder
+│   ├── CNNVae.py
+│   ├── dataset
+│   │   ├── test
+│   │   │   └── class1
+│   │   └── train
+│   │       └── mask2former
+│   ├── __init__.py
+│   ├── model
+│   │   ├── vae128
+│   │   │   ├── best
+│   │   │   │   ├── decoder_model.pth
+│   │   │   │   ├── var_autoencoder.pth
+│   │   │   │   └── var_encoder_model.pth
+│   │   │   ├── last
+│   │   │   │   ├── decoder_model.pth
+│   │   │   │   ├── var_autoencoder.pth
+│   │   │   │   └── var_encoder_model.pth
+│   │   │   └── vae.py
+│   │   ├── vae16
+│   │   │   ├── best
+│   │   │   │   ├── decoder_model.pth
+│   │   │   │   ├── var_autoencoder.pth
+│   │   │   │   └── var_encoder_model.pth
+│   │   │   ├── last
+│   │   │   │   ├── decoder_model.pth
+│   │   │   │   ├── var_autoencoder.pth
+│   │   │   │   └── var_encoder_model.pth
+│   │   │   └── vae.py
+│   │   ├── vae32
+│   │   │   ├── best
+│   │   │   │   ├── decoder_model.pth
+│   │   │   │   ├── var_autoencoder.pth
+│   │   │   │   └── var_encoder_model.pth
+│   │   │   ├── last
+│   │   │   │   ├── decoder_model.pth
+│   │   │   │   ├── var_autoencoder.pth
+│   │   │   │   └── var_encoder_model.pth
+│   │   │   └── vae.py
+│   │   └── vae64
+│   │       ├── best
+│   │       │   ├── decoder_model.pth
+│   │       │   ├── var_autoencoder.pth
+│   │       │   └── var_encoder_model.pth
+│   │       ├── last
+│   │       │   ├── decoder_model.pth
+│   │       │   ├── var_autoencoder.pth
+│   │       │   └── var_encoder_model.pth
+│   │       └── vae.py
+│   ├── __pycache__
+│   │   ├── CNNVae.cpython-38.pyc
+│   │   ├── __init__.cpython-38.pyc
+│   │   └── vae_wrapper.cpython-38.pyc
+│   ├── reconstructed
+│   │   ├── vae128
+│   │   │   └── 0
+│   │   ├── vae16
+│   │   │   └── 0
+│   │   ├── vae32
+│   │   │   └── 0
+│   │   └── vae64
+│   │       └── 0
+│   ├── reconstructor.py
+│   ├── train_vae.py
+│   ├── utils
+│   │   └── Dataloader.py
+│   └── vae_wrapper.py
+├── CLIP
+│   ├── clip_wrapper.py
+│   └── __init__.py
+├── coach_config_structure.txt
+├── config
+│   ├── action_config.py
+│   ├── algorithm_config.py
+│   ├── Config_loader.py
+│   ├── env
+│   │   ├── camera.py
+│   │   ├── carla_sim.py
+│   │   ├── coach_config
+│   │   │   ├── ait_football_backup.py
+│   │   │   ├── AIT_scenes
+│   │   │   │   ├── ait_football_inner.py
+│   │   │   │   ├── ait_football_inner_straight_only.py
+│   │   │   │   ├── ait_football_outer.py
+│   │   │   │   ├── ait_football_outer_straight_only.py
+│   │   │   │   ├── curve_admin2aic_1.py
+│   │   │   │   ├── curve_admin2aic_2.py
+│   │   │   │   ├── curve_aic2admin_1.py
+│   │   │   │   ├── curve_aic2admin_2.py
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   │   ├── ait_football_inner.cpython-38.pyc
+│   │   │   │   │   ├── ait_football_inner_straight_only.cpython-38.pyc
+│   │   │   │   │   ├── ait_football_outer.cpython-38.pyc
+│   │   │   │   │   ├── ait_football_outer_straight_only.cpython-38.pyc
+│   │   │   │   │   ├── curve_admin2aic_1.cpython-38.pyc
+│   │   │   │   │   ├── curve_admin2aic_2.cpython-38.pyc
+│   │   │   │   │   ├── curve_aic2admin_1.cpython-38.pyc
+│   │   │   │   │   ├── curve_aic2admin_2.cpython-38.pyc
+│   │   │   │   │   ├── __init__.cpython-38.pyc
+│   │   │   │   │   ├── rest_area.cpython-38.pyc
+│   │   │   │   │   └── scenes.cpython-38.pyc
+│   │   │   │   ├── rest_area.py
+│   │   │   │   ├── straight_AIC2ISE.py
+│   │   │   │   └── straight_ISE2AIC.py
+│   │   │   ├── command.py
+│   │   │   ├── dummy.py
+│   │   │   ├── __init__.py
+│   │   │   ├── __pycache__
+│   │   │   │   ├── ait_football.cpython-38.pyc
+│   │   │   │   ├── command.cpython-38.pyc
+│   │   │   │   ├── dummy.cpython-38.pyc
+│   │   │   │   ├── __init__.cpython-38.pyc
+│   │   │   │   └── scene_loader.cpython-38.pyc
+│   │   │   └── scene_loader.py
+│   │   ├── __init__.py
+│   │   ├── __pycache__
+│   │   │   ├── action_config.cpython-38.pyc
+│   │   │   ├── camera.cpython-38.pyc
+│   │   │   ├── carla_sim.cpython-38.pyc
+│   │   │   ├── env_config.cpython-38.pyc
+│   │   │   ├── __init__.cpython-38.pyc
+│   │   │   ├── levels.cpython-38.pyc
+│   │   │   ├── object_config.cpython-38.pyc
+│   │   │   ├── reward_config.cpython-38.pyc
+│   │   │   ├── spawn_points.cpython-38.pyc
+│   │   │   └── world_config.cpython-38.pyc
+│   │   └── reward_config.py
+│   ├── __init__.py
+│   ├── levels
+│   │   ├── AIT.py
+│   │   ├── __init__.py
+│   │   └── __pycache__
+│   │       ├── AIT.cpython-38.pyc
+│   │       ├── AIT_levels.cpython-38.pyc
+│   │       └── __init__.cpython-38.pyc
+│   ├── observer_config.py
+│   ├── __pycache__
+│   │   ├── action_config.cpython-38.pyc
+│   │   ├── algorithm_config.cpython-38.pyc
+│   │   ├── camera.cpython-38.pyc
+│   │   ├── Config_loader.cpython-38.pyc
+│   │   ├── env.cpython-38.pyc
+│   │   ├── __init__.cpython-38.pyc
+│   │   ├── levels.cpython-38.pyc
+│   │   ├── observer_config.cpython-38.pyc
+│   │   ├── position.cpython-38.pyc
+│   │   ├── seg_config.cpython-38.pyc
+│   │   ├── trainRL_config.cpython-38.pyc
+│   │   └── vae.cpython-38.pyc
+│   ├── seg_config.py
+│   └── vae.py
+├── data
+│   ├── cam640
+│   ├── carla_example
+│   ├── experiments
+│   │   ├── 2024-03-21_11-15-16
+│   │   │   ├── cam1
+│   │   │   ├── cam2
+│   │   │   ├── cam3
+│   │   │   └── history.json
+│   │   ├── 2024-03-21_11-16-10
+│   │   │   ├── cam1
+│   │   │   ├── cam2
+│   │   │   ├── cam3
+│   │   │   └── history.json
+│   │   ├── 2024-03-21_11-36-33
+│   │   │   ├── cam1
+│   │   │   ├── cam2
+│   │   │   ├── cam3
+│   │   │   ├── commands.json
+│   │   │   ├── history.json
+│   │   │   └── other.txt
+│   │   ├── 2024-03-21_11-41-49
+│   │   │   ├── cam1
+│   │   │   ├── cam2
+│   │   │   ├── cam3
+│   │   │   ├── commands.json
+│   │   │   ├── history.json
+│   │   │   └── other.txt
+│   │   └── 2024-03-21_11-52-00
+│   │       ├── cam1
+│   │       ├── cam2
+│   │       └── cam3
+│   ├── raw_4cams
+│   │   ├── back
+│   │   ├── front
+│   │   ├── front_checked
+│   │   ├── left
+│   │   └── right
+│   ├── sample_crop
+│   └── seg_maps
+├── data_tools
+│   ├── control.py
+│   ├── __init__.py
+│   └── __pycache__
+│       ├── control.cpython-38.pyc
+│       ├── img_control.cpython-38.pyc
+│       └── __init__.cpython-38.pyc
+├── environment
+│   ├── agent
+│   │   └── cross_att_net.py
+│   ├── CarlaEnv.py
+│   ├── __init__.py
+│   ├── loader.py
+│   ├── __pycache__
+│   │   ├── action_wraper.cpython-38.pyc
+│   │   ├── CarlaEnv.cpython-38.pyc
+│   │   ├── CtrlEnv.cpython-38.pyc
+│   │   ├── Env.cpython-38.pyc
+│   │   ├── __init__.cpython-38.pyc
+│   │   └── loader.cpython-38.pyc
+│   ├── rewardmask
+│   │   └── ait_map
+│   │       └── scale.json
+│   └── tools
+│       ├── action_wrapper.py
+│       ├── actor_wrapper.py
+│       ├── backup.py
+│       ├── coach.py
+│       ├── controllor.py
+│       ├── env_wrapper.py
+│       ├── high_level_cmd.py
+│       ├── hud.py
+│       ├── __init__.py
+│       ├── observer.py
+│       ├── __pycache__
+│       │   ├── action_wraper.cpython-38.pyc
+│       │   ├── action_wrapper.cpython-38.pyc
+│       │   ├── actor_wrapper.cpython-38.pyc
+│       │   ├── coach.cpython-38.pyc
+│       │   ├── controllor.cpython-38.pyc
+│       │   ├── env_wrapper.cpython-38.pyc
+│       │   ├── high_level_cmd.cpython-38.pyc
+│       │   ├── hud.cpython-38.pyc
+│       │   ├── __init__.cpython-38.pyc
+│       │   ├── observer.cpython-38.pyc
+│       │   ├── rewarder.cpython-38.pyc
+│       │   ├── reward_fn.cpython-38.pyc
+│       │   ├── scene_design.cpython-38.pyc
+│       │   ├── scene_designer.cpython-38.pyc
+│       │   ├── utils.cpython-38.pyc
+│       │   └── UTILS.cpython-38.pyc
+│       ├── rewarder.py
+│       ├── save
+│       │   └── obj_sizes.json
+│       ├── scene_designer.py
+│       └── utils.py
+├── env_photo
+├── eval.py
+├── figure
+│   └── env_photo
+├── manual_control_carla.py
+├── map_planing.ipynb
+├── notebook
+│   ├── playing_notbook.ipynb
+│   ├── test_model.ipynb
+│   ├── test_module.ipynb
+│   ├── test_pytorch.py
+│   ├── test_vae.ipynb
+│   └── visual_eval.ipynb
+├── note_for_thesis.txt
+├── note.txt
+├── optuna_trials
+│   └── PPO
+│       ├── env_config.pkl
+│       ├── report.csv
+│       ├── study.pkl
+│       ├── trial_0
+│       │   ├── best_model.zip
+│       │   ├── evaluations.npz
+│       │   ├── params.txt
+│       │   └── PPO_1
+│       │       └── events.out.tfevents.1719818739.AIC-LPR.764014.0
+│       ├── trial_1
+│       │   ├── best_model.zip
+│       │   ├── evaluations.npz
+│       │   ├── params.txt
+│       │   └── PPO_1
+│       │       └── events.out.tfevents.1719821449.AIC-LPR.764014.1
+│       ├── trial_2
+│       │   ├── best_model.zip
+│       │   ├── evaluations.npz
+│       │   ├── params.txt
+│       │   └── PPO_1
+│       │       └── events.out.tfevents.1719824504.AIC-LPR.764014.2
+│       ├── trial_3
+│       │   ├── best_model.zip
+│       │   ├── evaluations.npz
+│       │   ├── params.txt
+│       │   └── PPO_1
+│       │       └── events.out.tfevents.1719828834.AIC-LPR.764014.3
+│       ├── trial_4
+│       │   ├── best_model.zip
+│       │   ├── evaluations.npz
+│       │   ├── params.txt
+│       │   └── PPO_1
+│       │       └── events.out.tfevents.1719832195.AIC-LPR.764014.4
+│       ├── trial_5
+│       │   ├── best_model.zip
+│       │   ├── evaluations.npz
+│       │   ├── params.txt
+│       │   └── PPO_1
+│       │       └── events.out.tfevents.1719835801.AIC-LPR.764014.5
+│       ├── trial_6
+│       │   ├── best_model.zip
+│       │   ├── evaluations.npz
+│       │   ├── params.txt
+│       │   └── PPO_1
+│       │       └── events.out.tfevents.1719838377.AIC-LPR.764014.6
+│       └── trial_7
+│           ├── best_model.zip
+│           ├── evaluations.npz
+│           ├── params.txt
+│           └── PPO_1
+│               └── events.out.tfevents.1719841249.AIC-LPR.764014.7
+├── optuna_tuner.py
+├── optuna_utils
+│   ├── maskable_trial_eval_callback.py
+│   ├── objective_function.py
+│   ├── plot_study.py
+│   ├── __pycache__
+│   │   └── trial_eval_callback.cpython-38.pyc
+│   ├── sample_params
+│   │   ├── ppo.py
+│   │   └── __pycache__
+│   │       └── ppo.cpython-38.pyc
+│   └── trial_eval_callback.py
+├── __pycache__
+│   └── utils.cpython-38.pyc
+├── README.md
+├── recorded
+│   ├── RecurrentPPO_1
+│   │   ├── infos.csv
+│   │   ├── model_70000_steps_eval.avi
+│   │   └── result.json
+│   ├── SAC_1
+│   │   ├── infos.csv
+│   │   ├── model_200000_steps_eval.avi
+│   │   └── result.json
+│   ├── SAC_1_success
+│   │   ├── infos.csv
+│   │   ├── model_200000_steps_eval.avi
+│   │   └── result.json
+│   ├── SAC_2
+│   │   ├── infos.csv
+│   │   ├── model_200000_steps_eval.avi
+│   │   └── result.json
+│   ├── SAC_5
+│   │   ├── infos.csv
+│   │   ├── model_200000_steps_eval.avi
+│   │   └── result.json
+│   ├── SAC_6
+│   │   ├── infos.csv
+│   │   ├── model_300000_steps_eval.avi
+│   │   └── result.json
+│   ├── SAC_6_testrun
+│   │   ├── model_100000_steps_eval.avi
+│   │   └── result.json
+│   ├── SAC_9
+│   │   ├── infos.csv
+│   │   ├── model_1300000_steps_eval.avi
+│   │   └── result.json
+│   └── TQC_1
+│       ├── infos.csv
+│       ├── model_200000_steps_eval.avi
+│       └── result.json
+├── requirements.txt
+├── RLmodel
+│   ├── PPO_1
+│   │   ├── config.json
+│   │   ├── env_config.pkl
+│   │   ├── model_120000_steps.zip
+│   │   ├── model_160000_steps.zip
+│   │   ├── model_200000_steps.zip
+│   │   ├── model_40000_steps.zip
+│   │   └── model_80000_steps.zip
+│   ├── PPO_2
+│   │   ├── config.json
+│   │   ├── env_config.pkl
+│   │   ├── model_120000_steps.zip
+│   │   ├── model_160000_steps.zip
+│   │   ├── model_200000_steps.zip
+│   │   ├── model_40000_steps.zip
+│   │   └── model_80000_steps.zip
+│   ├── SAC_13
+│   │   ├── config.json
+│   │   ├── env_config.pkl
+│   │   ├── model_120000_steps.zip
+│   │   ├── model_160000_steps.zip
+│   │   ├── model_40000_steps.zip
+│   │   └── model_80000_steps.zip
+│   ├── SAC_14
+│   │   ├── config.json
+│   │   ├── env_config.pkl
+│   │   ├── model_1040000_steps.zip
+│   │   ├── model_1170000_steps.zip
+│   │   ├── model_1300000_steps.zip
+│   │   ├── model_130000_steps.zip
+│   │   ├── model_260000_steps.zip
+│   │   ├── model_390000_steps.zip
+│   │   ├── model_520000_steps.zip
+│   │   ├── model_650000_steps.zip
+│   │   ├── model_780000_steps.zip
+│   │   └── model_910000_steps.zip
+│   ├── SAC_15
+│   │   ├── config.json
+│   │   ├── env_config.pkl
+│   │   └── model_50000_steps.zip
+│   ├── SAC_16
+│   │   ├── config.json
+│   │   ├── env_config.pkl
+│   │   ├── model_1350000_steps.zip
+│   │   ├── model_1400000_steps.zip
+│   │   ├── model_1450000_steps.zip
+│   │   └── model_1500000_steps.zip
+│   ├── SAC_5
+│   │   ├── config.json
+│   │   ├── env_config.pkl
+│   │   ├── model_120000_steps.zip
+│   │   ├── model_160000_steps.zip
+│   │   ├── model_200000_steps.zip
+│   │   ├── model_40000_steps.zip
+│   │   └── model_80000_steps.zip
+│   ├── SAC_6
+│   │   ├── config.json
+│   │   ├── env_config.pkl
+│   │   ├── model_220000_steps.zip
+│   │   ├── model_240000_steps.zip
+│   │   ├── model_260000_steps.zip
+│   │   ├── model_280000_steps.zip
+│   │   └── model_300000_steps.zip
+│   ├── SAC_7
+│   │   ├── config.json
+│   │   ├── env_config.pkl
+│   │   ├── model_360000_steps.zip
+│   │   ├── model_420000_steps.zip
+│   │   ├── model_480000_steps.zip
+│   │   ├── model_540000_steps.zip
+│   │   └── model_600000_steps.zip
+│   ├── SAC_8
+│   │   ├── config.json
+│   │   ├── env_config.pkl
+│   │   ├── model_660000_steps.zip
+│   │   ├── model_720000_steps.zip
+│   │   ├── model_780000_steps.zip
+│   │   ├── model_840000_steps.zip
+│   │   └── model_900000_steps.zip
+│   ├── SAC_9
+│   │   ├── config.json
+│   │   ├── env_config.pkl
+│   │   ├── model_1000000_steps.zip
+│   │   ├── model_1100000_steps.zip
+│   │   ├── model_1200000_steps.zip
+│   │   ├── model_1300000_steps.zip
+│   │   ├── model_400000_steps.zip
+│   │   ├── model_500000_steps.zip
+│   │   ├── model_600000_steps.zip
+│   │   ├── model_700000_steps.zip
+│   │   ├── model_800000_steps.zip
+│   │   └── model_900000_steps.zip
+│   ├── TQC_3
+│   │   ├── config.json
+│   │   ├── env_config.pkl
+│   │   ├── model_120000_steps.zip
+│   │   ├── model_160000_steps.zip
+│   │   ├── model_200000_steps.zip
+│   │   ├── model_40000_steps.zip
+│   │   └── model_80000_steps.zip
+│   ├── TQC_4
+│   │   ├── config.json
+│   │   ├── env_config.pkl
+│   │   ├── model_220000_steps.zip
+│   │   ├── model_240000_steps.zip
+│   │   ├── model_260000_steps.zip
+│   │   ├── model_280000_steps.zip
+│   │   └── model_300000_steps.zip
+│   └── TQC_5
+│       ├── config.json
+│       ├── env_config.pkl
+│       ├── model_1000000_steps.zip
+│       ├── model_1100000_steps.zip
+│       ├── model_1200000_steps.zip
+│       ├── model_1300000_steps.zip
+│       ├── model_400000_steps.zip
+│       ├── model_500000_steps.zip
+│       ├── model_600000_steps.zip
+│       ├── model_700000_steps.zip
+│       ├── model_800000_steps.zip
+│       └── model_900000_steps.zip
+├── runs
+│   ├── RL
+│   │   ├── PPO_1
+│   │   │   └── events.out.tfevents.1719766678.AIC-LPR.317339.0
+│   │   ├── PPO_2
+│   │   │   └── events.out.tfevents.1720521895.AIC-LPR.2523784.0
+│   │   ├── SAC_13
+│   │   │   └── events.out.tfevents.1720321683.AIC-LPR.812860.0
+│   │   ├── SAC_14
+│   │   │   └── events.out.tfevents.1720565926.AIC-LPR.2903174.0
+│   │   ├── SAC_15
+│   │   │   └── events.out.tfevents.1721697526.AIC-LPR.2706030.0
+│   │   ├── SAC_16
+│   │   │   └── events.out.tfevents.1721703644.AIC-LPR.2779171.0
+│   │   ├── SAC_5
+│   │   │   └── events.out.tfevents.1719729053.AIC-LPR.13671.0
+│   │   ├── SAC_6
+│   │   │   └── events.out.tfevents.1719751042.AIC-LPR.187824.0
+│   │   ├── SAC_7
+│   │   │   └── events.out.tfevents.1719885509.AIC-LPR.1329910.0
+│   │   ├── SAC_8
+│   │   │   └── events.out.tfevents.1719914598.AIC-LPR.1576668.0
+│   │   ├── SAC_9
+│   │   │   └── events.out.tfevents.1719994062.AIC-LPR.2244452.0
+│   │   ├── TQC_3
+│   │   │   └── events.out.tfevents.1720338713.AIC-LPR.964593.0
+│   │   ├── TQC_4
+│   │   │   └── events.out.tfevents.1720357166.AIC-LPR.1121028.0
+│   │   └── TQC_5
+│   │       └── events.out.tfevents.1720369228.AIC-LPR.1223152.0
+│   └── VAE
+│       ├── vae128
+│       │   └── events.out.tfevents.1715831226.AIC-LPR.39948.0
+│       ├── vae16
+│       │   └── events.out.tfevents.1715785293.AIC-LPR.26778.0
+│       ├── vae24
+│       │   ├── events.out.tfevents.1716369884.AIC-LPR.11605.0
+│       │   ├── events.out.tfevents.1716435829.AIC-LPR.7589.0
+│       │   └── events.out.tfevents.1716436026.AIC-LPR.6372.0
+│       ├── vae32
+│       │   ├── events.out.tfevents.1715765658.AIC-LPR.20759.0
+│       │   └── events.out.tfevents.1715765859.AIC-LPR.20923.0
+│       ├── vae32_v2
+│       │   └── events.out.tfevents.1716110658.AIC-LPR.109319.0
+│       └── vae64
+│           └── events.out.tfevents.1715827330.AIC-LPR.34899.0
+├── segmentation
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-38.pyc
+│   │   ├── seg_hf.cpython-38.pyc
+│   │   ├── seg_trt.cpython-38.pyc
+│   │   ├── seg_utils.cpython-38.pyc
+│   │   └── seg_wrapper.cpython-38.pyc
+│   ├── seg_hf.py
+│   ├── seg_trt.py
+│   ├── seg_wrapper.py
+│   └── tao_model
+│       ├── citysem-fan
+│       │   ├── citysemsegformer_fan_fp16.trt
+│       │   ├── citysemsegformer_fan.onnx
+│       │   ├── citysemsegformer_fan.trt
+│       │   └── citysemsegformer_fan_v10.trt
+│       ├── citysem-segformer
+│       │   ├── citysemsegformer.onnx
+│       │   ├── citysemsegformer.ZLECFDRC.onnx.part
+│       │   ├── labels.txt
+│       │   └── nvinfer_config.txt
+│       ├── fan-base
+│       │   ├── cityscapes_fan_base_hybrid_224_engine.trt
+│       │   ├── cityscapes_fan_base_hybrid_224.onnx
+│       │   └── cityscapes_fan_base_hybrid_224_v10.trt
+│       ├── fan-small
+│       │   ├── cityscapes_fan_small_hybrid_224.onnx
+│       │   └── cityscapes_fan_small_hybrid_224.trt
+│       ├── fan-tiny
+│       │   ├── cityscapes_fan_tiny_hybrid_224.onnx
+│       │   ├── cityscapes_fan_tiny_hybrid_224.onnx_engine.trt
+│       │   ├── cityscapes_fan_tiny_hybrid_3x3x224x224_onnx_engine.trt
+│       │   ├── cityscapes_fan_tiny_hybrid_rangeinput_onnx_engine.trt
+│       │   └── nvinfer_config.txt
+│       ├── mask2former
+│       │   ├── mask2former_nomask.onnx
+│       │   ├── mask2former.onnx
+│       │   └── mask2former.trt
+│       └── pretrained_segformer_cityscapes_deployable_fan_tiny_hybrid_v1.0.zip
+├── structure.txt
+├── teresf.py
+├── test_env.py
+├── train.py
+└── utils.py
+
+168 directories, 418 files

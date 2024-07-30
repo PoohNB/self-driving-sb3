@@ -12,7 +12,7 @@ model_path = '../autoencoder/model/vae32/best/var_encoder_model.pth'
 
 
 
-class VencoderWrapper():
+class VencoderWrapper:
 
     """
     model_path: pth path

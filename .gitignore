@@ -11,4 +11,7 @@ environment/rewardmask
 RLmodel
 recorded
 optuna_trials
-env_photo
+figure/env_photo
+utils_backup
+CLIP
+app
