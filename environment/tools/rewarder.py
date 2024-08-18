@@ -225,17 +225,18 @@ class RewardMaskPathV1(RewardMaskPathV0):
             elif self.maneuver=="left"and self.steer_side=="right":
                 self.reward -=  self.reward_scale *0.3
             elif self.maneuver=="forward":
+    
                 if (self.steer_side=="forward"):
-                    self.reward += norm_dist(self.curr_steer,s=0.01) * self.reward_scale *0.6 # change s to 0.01 for better focus
+                    self.reward += norm_dist(self.curr_steer,s=0.02) * self.reward_scale *0.45 # 0.6,0.3 change s to 0.01 for better focus
                     if self.prev_steer_side == "forward":
-                        self.reward -= (abs(self.steer_angle_change)/(self.mid_steer_range))*self.reward_scale*0.3
+                        self.reward -= (abs(self.steer_angle_change)/(self.mid_steer_range))*self.reward_scale*0.3 # 0.3 0.15
                     else:
-                        self.reward -= self.reward_scale*0.3
+                        self.reward -= self.reward_scale*0.3 # 0.3 0.15
                 else:
-                    self.reward -= self.reward_scale*0.3
+                    self.reward -= self.reward_scale*0.3 # 0.3 0.15
 
         else:
-            self.reward -= norm_dist(self.curr_steer) * self.reward_scale *0.3
+            self.reward -= norm_dist(self.curr_steer) * self.reward_scale *0.3 # 0.3 0.15
 
     def collision_check(self):
         # 1+1
@@ -247,13 +248,13 @@ class RewardMaskPathV1(RewardMaskPathV0):
     def stay_still_check(self):
         # if car move too slow
         if self.distance < self.minimum_distance and self.being_obstructed:
-            self.reward += self.reward_scale*1.5
+            self.reward += self.reward_scale*1.5 # 1.5
         elif self.distance < self.minimum_distance:
             if self.step>15:
                 self.started=True
             if self.started:
                 self.staystill_count+=1
-                self.reward -= self.reward_scale*1.5
+                self.reward -= self.reward_scale*1.5 # 1.5
         else:
             self.started = True
             self.staystill_count=0
@@ -295,6 +296,7 @@ class RewardMaskPathV1(RewardMaskPathV0):
 
                 self.out_of_road_count+=1
 
+            # green area
             elif (pixel_value == [0, 255, 0]).all():
                 self.reward -= self.norm_distance*0.2*self.reward_scale
                 self.color = "green"

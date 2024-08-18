@@ -64,13 +64,13 @@ def main():
     loaded_env_config['seed'] = seed
     # add the vae decoder if vae encoder exist
     if "Vae" in loaded_env_config['observer_config']['name']:
-        if loaded_env_config.get('observer_config', {}).get('vae_decoder_config') is None:
+        if loaded_env_config.get('observer_config', {}).get('config').get('vae_decoder_config') is None:
   
-            vencoder_model_path = loaded_env_config['observer_config']['vae_encoder_config']['model_path']
-            vencoder_latent_dims = loaded_env_config['observer_config']['vae_encoder_config']['latent_dims']
+            vencoder_model_path = loaded_env_config['observer_config']['config']['vae_encoder_config']['model_path']
+            vencoder_latent_dims = loaded_env_config['observer_config']['config']['vae_encoder_config']['latent_dims']
             decoder_model_path = os.path.join(os.path.dirname(vencoder_model_path), "decoder_model.pth")
 
-            loaded_env_config['observer_config']['vae_decoder_config'] = {
+            loaded_env_config['observer_config']['config']['vae_decoder_config'] = {
                 'model_path': decoder_model_path,
                 'latent_dims': vencoder_latent_dims
             }

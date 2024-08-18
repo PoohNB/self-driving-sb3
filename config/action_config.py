@@ -1,7 +1,7 @@
 action_limit = dict(name="LimitAction",
                     config=dict(throttle_range = (0.0,0.4),
                                 max_steer = 0.6,
-                                activate_filter_8bit=False))
+                                activate_filter_8bit=True))
 
 action_original = dict(name="ActionBase",
                     config=dict())

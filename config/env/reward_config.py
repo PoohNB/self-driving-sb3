@@ -1,5 +1,5 @@
 # for speed 8 km/hr
-reward_mask_base = dict(reward_scale=8,
+reward_mask_base = dict(reward_scale=10,
                        max_velo=2.22,
                        max_angular_velo=30.5,
                        step_time= 0.2,

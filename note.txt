@@ -57,30 +57,10 @@ python eval.py RLmodel/TQC_5/model_1300000_steps.zip --level 2 --eps 5 --seed 12
 
 RLmodel/SAC_19/model_50000_steps.zip
 
-
-SAC_19 -> reward distance,sparse panish on colis,stay still too long,out of path too long
-SAC_20 -> reward distance only,
-SAC_21 -> reward velo only
-SAC_22 -> reward sigmoid velo
-SAC_23 -> reward sigmoid velo but c=0.7 s=14
-SAC_24 -> reward sqrt velo
-SAC_24 -> reward sqrt distance
-SAC_25 -> reward sigmoid distance c=0.4 s=14
-SAC_26 -> reward sigmoid velo *100
-SAC_27 -> reward sigmoid velo *10
-SAC_28 -> reward sigmoid velo *4
-SAC_29 -> reward sigmoid velo *4 (SAC2)
-SAC_30 -> reward sigmoid velo *4 (SAC3)
-SAC_31 -> reward sigmoid velo *4 + jerk penalty (SAC2)
-SAC_32 -> reward sigmoid velo *4 + steer holding reward (SAC2)
-SAC_32 -> reward sigmoid velo *4 + jerk penalty (SAC2)
-
-
-SAC_40 -> reward sigmoid velo *3
-SAC_41 -> reward sigmoid velo *4 - angular velocity
-SAC_42 -> reward sigmoid velo *4 - angular velocity*0.8*4 inside blue
-SAC_43 -> reward sqrt velo *8 - angular velocity*0.8*8
-
 TQC_6 -> reward sigmoid velo *4
 
-RLmodel/SAC_14/model_1300000_steps.zip
+RLmodel/SAC_34/model_1600000_steps.zip
+
+RLmodel/SAC_41/model_700000_steps.zip
+
+RLmodel/SAC_42/model_1500000_steps.zip

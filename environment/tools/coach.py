@@ -29,11 +29,13 @@ class Coach:
         self.colli_sensor = self.env.colli_sensor
         self.scene_configs = scene_configs
         self.num_scenes = len(self.scene_configs)
-        self.scene_scores = [[1]*len(cf['spawn_points']) for cf in self.scene_configs]
         self.total_score = 1
+        self.prev_scene = -1
         self.curr_scene=0
+        self.prev_sp_idx = -1
         self.sp_idx=0
-        self.step =1
+        self.step =1        
+        self.scene_weights = [[(1/(self.total_score/self.step))]*len(cf['spawn_points']) for cf in self.scene_configs]
         self.cmd_decode = cmd_guide['cmd_dict']
         
         # spawn transform from config
@@ -68,10 +70,16 @@ class Coach:
 
     def reset(self):
         # select scene
-        self.mean_score = self.total_score/self.step
-        self.scene_scores[self.curr_scene][self.sp_idx] = max(1,self.mean_score)
-        scene_weight = [1/(sum(scores)/len(scores)) for scores in self.scene_scores]
-        self.curr_scene = random.choices(range(self.num_scenes),weights=scene_weight,k=1)[0]
+
+        # const = 1 + (self.curr_scene == self.prev_scene)*0.2 + (self.prev_sp_idx == self.sp_idx)*0.1
+
+        # score_weighted = 1/max(1,self.total_score)
+        # self.scene_weights[self.curr_scene][self.sp_idx] = ((self.scene_weights[self.curr_scene][self.sp_idx])
+        #                                                      +score_weighted)/2
+        # print("scene weights :",self.scene_weights)
+        # scene_weight = [sum(weights)/len(weights) for weights in self.scene_weights]
+        # self.curr_scene = random.choices(range(self.num_scenes),weights=scene_weight,k=1)[0]
+        self.curr_scene = random.choice(range(self.num_scenes))
         # Set the scene
         self.vehicle_placer.reset(self.curr_scene)
         self.pedestrian_placer.reset(self.curr_scene)
@@ -80,11 +88,15 @@ class Coach:
         # reset high level command
         self.maneuver=self.command_points[self.curr_scene].reset()
         #set the agent car on spawn points
-        spawn_weight = [1/score for score in self.scene_scores[self.curr_scene]]
-        self.sp_idx = random.choices(range(len(self.spawn_trans[self.curr_scene])),weights=spawn_weight,k=1)[0]
+        # spawn_weight =  self.scene_weights[self.curr_scene]
+        # self.sp_idx = random.choices(range(len(self.spawn_trans[self.curr_scene])),weights=spawn_weight,k=1)[0]
+        self.sp_idx = random.choice(range(len(self.spawn_trans[self.curr_scene])))
         self.car.move(self.spawn_trans[self.curr_scene][self.sp_idx])
         self.info['maneuver'] = self.maneuver
         self.step =0
+
+        # self.prev_sp_idx = self.sp_idx
+        # self.prev_scene = self.curr_scene
 
         return self.cmd_decode[self.maneuver],self.info
 
