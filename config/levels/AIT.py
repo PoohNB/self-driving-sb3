@@ -15,67 +15,13 @@ env_config_aug = dict(**env_config_base,
 
 levels = [dict(env= dict(**env_config_base,
                          carla_setting = carla_setting,
-                         max_step=250,
-                        coach_config=dict(scene_configs=[get_scene_config(AIT_scenes.curve_admin2aic_1),
-                                                         get_scene_config(AIT_scenes.curve_admin2aic_2),
-                                                         get_scene_config(AIT_scenes.curve_aic2admin_1),
-                                                         get_scene_config(AIT_scenes.curve_aic2admin_2),
-                                                         get_scene_config(AIT_scenes.ait_football_inner_straight_only),
-                                                         get_scene_config(AIT_scenes.ait_football_outer_straight_only)],
-                                        **get_coach_base(AIT_scenes),)
-                        ),
-             total_timesteps = 50000
-             ),
-        dict(env= dict(**env_config_base,
-                         carla_setting = carla_setting,
                          max_step=1800,
                         coach_config=dict(scene_configs=[get_scene_config(AIT_scenes.ait_football_inner),
                                                          get_scene_config(AIT_scenes.ait_football_outer),],
                                         **get_coach_base(AIT_scenes),)
                         ),
-             total_timesteps = 50000
-             ),
-        dict(env= dict(**env_config_base,
-                         carla_setting = carla_setting,
-                         max_step=250,
-                        coach_config=dict(scene_configs=[get_scene_config(AIT_scenes.curve_admin2aic_1),
-                                                         get_scene_config(AIT_scenes.curve_admin2aic_2),
-                                                         get_scene_config(AIT_scenes.curve_aic2admin_1),
-                                                         get_scene_config(AIT_scenes.curve_aic2admin_2),
-                                                         get_scene_config(AIT_scenes.ait_football_inner),
-                                                         get_scene_config(AIT_scenes.ait_football_outer),
-                                                         get_scene_config(AIT_scenes.turn_aic2admin),
-                                                         get_scene_config(AIT_scenes.turn_admin2aic)],
-                                        **get_coach_base(AIT_scenes),)
-                        ),
-             total_timesteps = 200000
-             ),
-
-        dict(env= dict(**env_config_base,
-                         carla_setting = carla_setting,
-                         max_step=2500,
-                        coach_config=dict(scene_configs=[get_scene_config(AIT_scenes.aic2admin)],
-                                        **get_coach_base(AIT_scenes),)
-                        ),
-             total_timesteps = 200000
-             ),
-
-        dict(env= dict(**env_config_base,
-                         carla_setting = carla_setting,
-                         max_step=2500,
-                        coach_config=dict(scene_configs=[get_scene_config(AIT_scenes.admin2aic)],
-                                        **get_coach_base(AIT_scenes),)
-                        ),
-             total_timesteps = 200000
-             ),
-        dict(env= dict(**env_config_aug,
-                         carla_setting = carla_setting,
-                         max_step=2500,
-                        coach_config=dict(scene_configs=[get_scene_config(AIT_scenes.aic2admin),
-                                                         get_scene_config(AIT_scenes.admin2aic)],
-                                        **get_coach_base(AIT_scenes),)
-                        ),
-             total_timesteps = 200000
+             total_timesteps = 100000,
+             description = "ait football"
              ),
         dict(env= dict(**env_config_base,
                          carla_setting = carla_setting,
@@ -86,5 +32,48 @@ levels = [dict(env= dict(**env_config_base,
                                                          get_scene_config(AIT_scenes.admin2aic)],
                                         **get_coach_base(AIT_scenes),)
                         ),
-             total_timesteps = 200000
+             total_timesteps = 200000,
+             description = "all"
+             ),
+             dict(env= dict(**env_config_aug,
+                         carla_setting = carla_setting,
+                         max_step=1800,
+                        coach_config=dict(scene_configs=[get_scene_config(AIT_scenes.ait_football_inner),
+                                                         get_scene_config(AIT_scenes.ait_football_outer),
+                                                         get_scene_config(AIT_scenes.aic2admin),
+                                                         get_scene_config(AIT_scenes.admin2aic)],
+                                        **get_coach_base(AIT_scenes),)
+                        ),
+             total_timesteps = 200000,
+             description = "all,shaky camera"
+             ),
+
+        dict(env= dict(**env_config_base,
+                         carla_setting = carla_setting,
+                         max_step=2500,
+                        coach_config=dict(scene_configs=[get_scene_config(AIT_scenes.aic2admin)],
+                                        **get_coach_base(AIT_scenes),)
+                        ),
+             total_timesteps = 200000,
+             description = "aic2admin"
+             ),
+
+        dict(env= dict(**env_config_base,
+                         carla_setting = carla_setting,
+                         max_step=2500,
+                        coach_config=dict(scene_configs=[get_scene_config(AIT_scenes.admin2aic)],
+                                        **get_coach_base(AIT_scenes),)
+                        ),
+             total_timesteps = 200000,
+             description = "admin2aic"
+             ),
+        dict(env= dict(**env_config_base,
+                         carla_setting = carla_setting,
+                         max_step=2500,
+                        coach_config=dict(scene_configs=[get_scene_config(AIT_scenes.aic2admin),
+                                                         get_scene_config(AIT_scenes.admin2aic)],
+                                        **get_coach_base(AIT_scenes),)
+                        ),
+             total_timesteps = 200000,
+             description = "admin and aic"
              ),]

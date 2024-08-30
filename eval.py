@@ -26,6 +26,7 @@ def main():
     parser.add_argument('--eps', type=int, default=1, help='test episode (default:1)')
     parser.add_argument('--seed', type=int, default=2077, help='env seed (default: 2077)')
     parser.add_argument('--record', action='store_true', help='record the video in recorded folder (default: False)')
+    parser.add_argument('--speed_factor', type=float, default=1, help='speed factor for evaluate the effect of speed change to model (default:1)')
 
     args = parser.parse_args()
 
@@ -110,6 +111,7 @@ def main():
             while not done:
         
                 action, _ = model.predict(obs.reshape((1,obs_shape)) ,deterministic=True)#
+                action = [action[0],max(min(action[1]*args.speed_factor,1),0)]
     
                 obs, reward, done, info = env.step(action)
                 total_reward += reward
