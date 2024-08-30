@@ -62,6 +62,7 @@ class RewardMaskPathV0:
         self.max_steer = value_setting['max_steer']
         self.minimum_distance = value_setting['minimum_distance']
         self.mid_steer_range = value_setting['mid_steer_range']
+        self.half_mid_steer_range = self.mid_steer_range/2
         self.max_angular_velo =  value_setting['max_angular_velo']
 
     def reset(self):
@@ -87,7 +88,7 @@ class RewardMaskPathV0:
         return self.get_info()
     
     def add_reset(self):
-        self.prev_steer_side = "forward"
+        self.steer_side = "forward"
 
     def _get_car_position_on_map(self, car_position):
         # Convert car position from CARLA coordinates to image coordinates
@@ -109,6 +110,7 @@ class RewardMaskPathV0:
             self.car_pos = self.car.get_location()
         self.prev_position = (self.car_pos.x,self.car_pos.y)
         self.prev_steer = self.curr_steer
+        # self.prev_steer_side = self.steer_side
         self.prev_velo = self.velo
 
         # check distance
@@ -206,55 +208,59 @@ class RewardMaskPathV1(RewardMaskPathV0):
     def steer_check(self):
 
         # determine steer
-        if self.curr_steer < -(self.mid_steer_range/2):
-            self.steer_side = "left"
-        elif self.curr_steer>(self.mid_steer_range/2):
-            self.steer_side = "right"
-        else:
-            self.steer_side = "forward"
-
         if self.color == "blue":
             # jerk shaky check
-            if self.steer_side != self.prev_steer_side and self.prev_steer_side != "forward" and self.steer_side != "forward":
-                self.reward -= self.reward_scale*0.45
+            # if self.steer_side != self.prev_steer_side and self.prev_steer_side != "forward" and self.steer_side != "forward":
+            #     self.reward -= self.reward_scale*0.45
 
             # small reward when can keep to steer at 0 for make it try to keep it strigth
         
-            if self.maneuver=="right" and self.steer_side=="left":
-                self.reward -=   self.reward_scale *0.3
-            elif self.maneuver=="left"and self.steer_side=="right":
-                self.reward -=  self.reward_scale *0.3
+            if self.maneuver=="right":
+                if self.curr_steer<-self.half_mid_steer_range:
+                    self.reward -=   self.reward_scale *0.3
+                else:
+                    self.reward +=   self.reward_scale *0.3  
+
+                self.reward -= (abs(self.steer_angle_change)/2)*self.reward_scale*0.1  
+                
+            elif self.maneuver=="left":
+                if self.curr_steer>self.half_mid_steer_range:
+                    self.reward -=  self.reward_scale *0.3
+                else:
+                    self.reward +=   self.reward_scale *0.3
+
+                self.reward -= (abs(self.steer_angle_change)/2)*self.reward_scale*0.1  
+
             elif self.maneuver=="forward":
     
-                if (self.steer_side=="forward"):
+                if (self.curr_steer>-self.half_mid_steer_range) and (self.curr_steer<self.half_mid_steer_range):
                     self.reward += norm_dist(self.curr_steer,s=0.02) * self.reward_scale *0.45 # 0.6,0.3 change s to 0.01 for better focus
-                    if self.prev_steer_side == "forward":
-                        self.reward -= (abs(self.steer_angle_change)/(self.mid_steer_range))*self.reward_scale*0.3 # 0.3 0.15
-                    else:
-                        self.reward -= self.reward_scale*0.3 # 0.3 0.15
                 else:
-                    self.reward -= self.reward_scale*0.3 # 0.3 0.15
+                    self.reward -= self.reward_scale*0.3 
+
+                self.reward -= (abs(self.steer_angle_change)/2)*self.reward_scale*0.3    
+                
 
         else:
-            self.reward -= norm_dist(self.curr_steer) * self.reward_scale *0.3 # 0.3 0.15
+            self.reward -= (1-abs(self.curr_steer)) * self.reward_scale *0.3 # 0.3 0.15
 
     def collision_check(self):
         # 1+1
         if self.colli.collision:
             self.terminate = True
             self.reason = "collision terminate"
-            self.reward-= (1+self.norm_velo)*self.reward_scale
+            self.reward-= (1.2+self.norm_velo)*self.reward_scale
 
     def stay_still_check(self):
         # if car move too slow
         if self.distance < self.minimum_distance and self.being_obstructed:
-            self.reward += self.reward_scale*1.5 # 1.5
+            self.reward += self.reward_scale*1.7 # 1.5
         elif self.distance < self.minimum_distance:
             if self.step>15:
                 self.started=True
             if self.started:
                 self.staystill_count+=1
-                self.reward -= self.reward_scale*1.5 # 1.5
+                self.reward -= self.reward_scale*1.7 # 1.5
         else:
             self.started = True
             self.staystill_count=0
@@ -280,25 +286,25 @@ class RewardMaskPathV1(RewardMaskPathV0):
             if (pixel_value == [255, 0, 0]).all():
                 self.color = "blue"
 
-                self.reward += self.norm_distance*self.reward_scale
+                self.reward += (0.2+self.norm_distance)*self.reward_scale
                 self.out_of_road_count=0
      
              # Red area penalty
             elif (pixel_value == [0, 0, 255]).all():
                 self.color = "red"
-                self.reward -= self.norm_distance*self.reward_scale*0.8
+                self.reward -= (0.2+self.norm_distance)*self.reward_scale*0.8
 
                 self.out_of_road_count+=2
             # black area
             elif (pixel_value == [0, 0, 0]).all():
-                self.reward -= self.norm_distance*0.6*self.reward_scale
+                self.reward -= (0.2+self.norm_distance)*0.6*self.reward_scale
                 self.color = "black"
 
                 self.out_of_road_count+=1
 
             # green area
             elif (pixel_value == [0, 255, 0]).all():
-                self.reward -= self.norm_distance*0.2*self.reward_scale
+                self.reward -= (0.2+self.norm_distance)*0.2*self.reward_scale
                 self.color = "green"
 
         if self.out_of_road_count > self.out_of_road_count_limit:

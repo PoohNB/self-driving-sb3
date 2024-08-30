@@ -29,6 +29,7 @@ def main():
     parser.add_argument('--load_model', type=str, default='', help='The path to the model to load (default: "")')
     parser.add_argument('--save_replay_buffer', action='store_true', help='save_replay_buffer for continue training (default: False)')
 
+    parser.add_argument('--seed', type=int, default=2024, help='env seed (default: 2024)')
     parser.add_argument('--render', action='store_false', help='render image while training (default: True)')
     parser.add_argument('--log_dir', type=str, default="runs/RL", help='train log directory (default: "runs/RL")')
     parser.add_argument('--save_dir', type=str, default="RLmodel", help='model save directory (default: "RLmodel")')
@@ -54,6 +55,8 @@ def main():
         raise ValueError("Invalid algorithm name")
 
     SAVE_PATH,LOG_DIR = create_policy_paths(SAVE_PATH,LOG_DIR,algo_config['method'])
+
+    CONFIG['env']['env_config']['seed'] = args.seed
 
     env = env_from_config(CONFIG['env'],RENDER=RENDER)
 
