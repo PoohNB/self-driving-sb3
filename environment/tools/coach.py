@@ -30,16 +30,23 @@ class Coach:
         self.scene_configs = scene_configs
         self.num_scenes = len(self.scene_configs)
         self.total_score = 1
-        self.prev_scene = -1
+        # self.prev_scene = -1
         self.curr_scene=0
-        self.prev_sp_idx = -1
+        # self.prev_sp_idx = -1
         self.sp_idx=0
         self.step =1        
-        self.scene_weights = [[(1/(self.total_score/self.step))]*len(cf['spawn_points']) for cf in self.scene_configs]
+        # self.scene_weights = [[(1/(self.total_score/self.step))]*len(cf['spawn_points']) for cf in self.scene_configs]
         self.cmd_decode = cmd_guide['cmd_dict']
+        self.eval_mode_activated = False
         
         # spawn transform from config
-        self.spawn_trans = [[get_correspond_waypoint_transform(carla_map,sp) for sp in cf['spawn_points']] for cf in self.scene_configs]
+        self.spawn_trans = []
+        self.num_spawns = []
+        for cf in self.scene_configs:
+            spawn_points = [get_correspond_waypoint_transform(carla_map,sp) for sp in cf['spawn_points']]
+            self.num_spawns.append(len(spawn_points))
+            self.spawn_trans.append(spawn_points)
+
         # get vehicle placer and pedestrian placer
         vehicle_configs = [cf['car_obsc'] for cf in self.scene_configs if cf['car_obsc']]
         self.vehicle_placer = VehiclePlacer(self.world,vehicle_configs,parking_area) 
@@ -67,6 +74,12 @@ class Coach:
     def get_len_maneuver(self):
 
         return len(list(self.cmd_decode.values())[0])
+    
+    def eval_mode(self):
+        self.eval_mode_activated = True
+
+    def random_mode(self):
+        self.eval_mode_activated = False
 
     def reset(self):
         # select scene
@@ -79,7 +92,17 @@ class Coach:
         # print("scene weights :",self.scene_weights)
         # scene_weight = [sum(weights)/len(weights) for weights in self.scene_weights]
         # self.curr_scene = random.choices(range(self.num_scenes),weights=scene_weight,k=1)[0]
-        self.curr_scene = random.choice(range(self.num_scenes))
+        if self.eval_mode_activated:
+
+            self.sp_idx+=1
+
+            if self.num_spawns[self.curr_scene]<= self.sp_idx:
+                self.sp_idx = 0
+                self.curr_scene=(self.curr_scene+1)%self.num_scenes
+                
+        else:
+            self.curr_scene = random.choice(range(self.num_scenes))
+            self.sp_idx = random.choice(range(len(self.spawn_trans[self.curr_scene])))
         # Set the scene
         self.vehicle_placer.reset(self.curr_scene)
         self.pedestrian_placer.reset(self.curr_scene)
@@ -88,9 +111,6 @@ class Coach:
         # reset high level command
         self.maneuver=self.command_points[self.curr_scene].reset()
         #set the agent car on spawn points
-        # spawn_weight =  self.scene_weights[self.curr_scene]
-        # self.sp_idx = random.choices(range(len(self.spawn_trans[self.curr_scene])),weights=spawn_weight,k=1)[0]
-        self.sp_idx = random.choice(range(len(self.spawn_trans[self.curr_scene])))
         self.car.move(self.spawn_trans[self.curr_scene][self.sp_idx])
         self.info['maneuver'] = self.maneuver
         self.step =0

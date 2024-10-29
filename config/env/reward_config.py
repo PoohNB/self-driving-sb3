@@ -1,5 +1,5 @@
 # for speed 8 km/hr
-reward_mask_base = dict(reward_scale=10,
+reward_mask_base = dict(reward_scale=5,
                        max_velo=2.22,
                        max_angular_velo=30.5,
                        step_time= 0.2,
@@ -11,11 +11,11 @@ reward_mask_base = dict(reward_scale=10,
 
 admin2aic = dict(name="RewardMaskPathV1",
                     config = dict(mask_path = "environment/rewardmask/ait_map/admin2aic.png",
-                                  end_point = (-243.94, -369.58)))
+                                  end_point = (-243.94, -369.58))) # (-243.94, -369.58)
 
 aic2admin = dict(name="RewardMaskPathV1",
                     config = dict(mask_path = "environment/rewardmask/ait_map/aic2admin.png",
-                                  end_point = (2.91, -98.42)))
+                                  end_point = (-23.50, -11.63))) # (-23.50, -11.63) (2.91, -98.42)
 
 ait_fb_outer = dict(name="RewardMaskPathV1",
                     config = dict(mask_path = "environment/rewardmask/ait_map/ait_fb_outer.png",

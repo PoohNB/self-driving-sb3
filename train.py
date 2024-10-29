@@ -26,6 +26,7 @@ def main():
     parser.add_argument('--map_name', type=str, default='AIT', help='The name of the map (default: AIT)')
     parser.add_argument('--level', type=int, default=0, help='The level (default: 0)')    
     parser.add_argument('--total_timesteps', type=int, default=-1, help='total_timesteps')
+    parser.add_argument('--max_step', type=int, default=-1, help='max_step')
     parser.add_argument('--load_model', type=str, default='', help='The path to the model to load (default: "")')
     parser.add_argument('--save_replay_buffer', action='store_true', help='save_replay_buffer for continue training (default: False)')
 
@@ -57,6 +58,9 @@ def main():
     SAVE_PATH,LOG_DIR = create_policy_paths(SAVE_PATH,LOG_DIR,algo_config['method'])
 
     CONFIG['env']['env_config']['seed'] = args.seed
+    if args.max_step >0:
+        print("set the max_step to ",args.max_step)
+        CONFIG['env']['max_step'] = args.max_step
 
     env = env_from_config(CONFIG['env'],RENDER=RENDER)
 

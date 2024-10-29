@@ -1,5 +1,5 @@
 action_limit = dict(name="LimitAction",
-                    config=dict(throttle_range = (0.0,0.4),
+                    config=dict(throttle_range = (0.0,0.32),
                                 max_steer = 0.6,
                                 activate_filter_8bit=True))
 

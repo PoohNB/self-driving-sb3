@@ -45,6 +45,7 @@ def env_from_config(config, RENDER):
     """
     obs, action_wr = init_component(config)
 
+    print(config)
     env = CarlaImageEnv(
         observer=obs,
         action_wrapper=action_wr,

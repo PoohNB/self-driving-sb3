@@ -63,4 +63,13 @@ RLmodel/SAC_34/model_1600000_steps.zip
 
 RLmodel/SAC_41/model_700000_steps.zip
 
-RLmodel/SAC_46/model_1000000_steps.zip
+RLmodel/SAC_47/model_3000000_steps.zip
+
+python
+
+RLmodel/SAC_49/model_1000000_steps.zip
+
+python eval.py RLmodel/SAC_54/model_1000000_steps.zip --delta_frame 0.4 --seed 2077 --eps 14 --max_step 400 --map AIT --level 2 
+--record --fps 30
+
+python train.py SAC2 --total_timesteps 2000000 --level 0 --save_replay_buffer --max_step 500 --load_model RLmodel/SAC_54/model_1000000_steps.zip

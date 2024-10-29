@@ -66,8 +66,14 @@ TQC1 = dict(policy = "MlpPolicy",
         gradient_steps=64,
         learning_starts=10000,
         use_sde=True,
+        top_quantiles_to_drop_per_net=2,
         policy_kwargs=dict(log_std_init=-3,
-                            net_arch=[500, 300]),
+                            net_arch=dict(
+                                pi=[500, 300],                      # Actor network architecture (same as SAC)
+                                qf=[1024, 512, 512],                 # Critic network architecture (as per TQC paper)
+                                ),
+                            n_critics=5, 
+                            n_quantiles=25),
     )
 
 TQC2 = dict(policy = "MlpPolicy",

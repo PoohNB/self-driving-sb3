@@ -55,7 +55,8 @@ class CarlaImageEnv(gym.Env):
                  render_raw = False,
                  render_observer = False,
                  augment_image=False,
-                 rand_weather=False,                 
+                 rand_weather=False,   
+                 rand_cams_pos=False,              
                  seed=2024):
         
         if discrete_actions is not None:
@@ -72,8 +73,8 @@ class CarlaImageEnv(gym.Env):
         self.render_raw = render_raw
         self.render_observer  = render_observer 
         self.rand_weather = rand_weather
+        self.rand_cams_pos=rand_cams_pos
 
-        self.env_config = carla_setting
         self.max_step = max_step
         self.fps = 1/carla_setting['delta_frame']
 
@@ -134,7 +135,11 @@ class CarlaImageEnv(gym.Env):
 
     def get_pygamecontroller(self):
         weak_self = weakref.ref(self)  
-        return PygameControllor(spectator_cam,weak_self)                                                                                                                                                     
+        return PygameControllor(spectator_cam,weak_self) 
+
+    def eval_mode(self):
+        print("setting coach to eval mode it will not randomly pick the scene, but select each scene in order ")  
+        self.coach.eval_mode()                                                                                                                                                 
    
     def reset(self, *, seed=None, options=None):
 
@@ -149,7 +154,12 @@ class CarlaImageEnv(gym.Env):
         self.total_distance=0
         self.reward = 0
         self.prev_pos = None
+        self.steer = 0
+        self.throttle = 0
         # reset actor, and 
+        if self.rand_cams_pos:
+            for cam in self.dcam:
+                self.randomize_camera_transform(cam)
         self.maneuver,self.note = self.coach.reset()
         self.world.reset_actors() 
         if self.rand_weather:
@@ -168,6 +178,23 @@ class CarlaImageEnv(gym.Env):
             self.pygamectrl.receive_key()
 
         return self.obs,{}
+    
+    def randomize_camera_transform(self,cam):
+        # Random pitch, yaw, roll within the given ranges
+
+        Location = list(cam.cam_config['Location'])
+        Rotation = list(cam.cam_config['Rotation'])
+
+        Rotation[0]+= random.uniform(-3, 3)
+        Rotation[1]+= random.uniform(-3, 3)
+        Rotation[2]+= random.uniform(-3, 3)
+
+        # Random location with a small variation around [0.98, 0, 1.675] by +- 0.025
+        Location[0]+= random.uniform(-0.025, 0.025)
+        Location[1]+= random.uniform(-0.01, 0.01)
+        Location[2]+= random.uniform(-0.025, 0.025)
+
+        cam.set_transform(carla.Transform(carla.Location(*Location), carla.Rotation(*Rotation)))
 
     def step(self, action):
 
@@ -181,16 +208,17 @@ class CarlaImageEnv(gym.Env):
 
         # post process action
         if self.discrete_actions is None:
-            steer, throttle,brake = self.action_wraper(action=action)
+            self.steer, self.throttle,brake = self.action_wraper(action=action)
         else:
-            steer, throttle = self.discrete_actions[action]
+            self.steer, self.throttle = self.discrete_actions[action]
             brake = False
             # normalize to 0-1
             action = np.array([action/self.num_discrete])
 
-        control = carla.VehicleControl(throttle=throttle, steer=steer, brake=brake,
+        control = carla.VehicleControl(throttle=self.throttle, steer=self.steer, brake=brake,
                                        hand_brake=False, reverse=False, manual_gear_shift=False, gear=0)
         
+        # set movement for other car ** not implement yet
         self.coach.set_movement()
         # control = carla.VehicleAckermannControl(steer=steer, steer_speed=0.3 ,speed=throttle, acceleration=3.6, jerk=0.1)
   
@@ -222,7 +250,7 @@ class CarlaImageEnv(gym.Env):
                 "total_distance":self.total_distance,
                 "speed":self.speed,
                 "avg_speed":self.avg_speed,
-                "steer":steer,
+                "steer":self.steer,
                 "mean_reward":self.mean_reward,
                 **self.note}
 
@@ -303,6 +331,8 @@ class CarlaImageEnv(gym.Env):
             "Distance: % 7.3f m" % self.distance, 
             "Distance traveled: % 7d m" % self.total_distance,
             "speed:      % 7.2f km/h" % self.speed,
+            f"steer value: {self.steer:.2f}",
+            f"throttle value: {self.throttle:.2f}",
             "Reward: % 19.2f" % self.reward,
             "Total reward:        % 7.2f" % self.total_reward,
         ]+list_of_strings

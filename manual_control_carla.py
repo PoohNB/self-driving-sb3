@@ -63,7 +63,7 @@ from __future__ import print_function
 
 
 car_spawn = None
-from utils_backup.tools import carla_point
+# from utils_backup.tools import carla_point
 import glob
 import os
 import sys

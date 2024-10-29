@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QPushButton, QVBo
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QImage, QPixmap
 import numpy as np
-from app.mode import AgentSim
+from app_demo.mode import AgentSim
 import traceback
 
 class LoopThread(QThread):

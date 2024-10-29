@@ -464,10 +464,16 @@ class World(ManageActors):
         settings = self.world.get_settings()
         settings.fixed_delta_seconds = self.delta_frame
         settings.synchronous_mode = True
-        settings.max_substeps = 16
-        settings.max_substep_delta_time = 0.0125
+        max_substeps = int(16 * (self.delta_frame / 0.2))
+        settings.max_substeps = max_substeps
+        settings.max_substep_delta_time = self.delta_frame/max_substeps
         self.world.apply_settings(settings)
         self.client.reload_world(False)
+        print(f"Setting world to synchronous mode with the following settings:")
+        print(f"  Fixed delta seconds: {settings.fixed_delta_seconds}")
+        print(f"  Synchronous mode: {settings.synchronous_mode}")
+        print(f"  Max substeps: {settings.max_substeps}")
+        print(f"  Max substep delta time: {settings.max_substep_delta_time}")
 
     def set_asynchornous(self):
         settings = self.world.get_settings()
